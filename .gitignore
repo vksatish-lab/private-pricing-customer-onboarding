@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+data/onboardings.json
+.DS_Store
+.streamlit/secrets.toml
