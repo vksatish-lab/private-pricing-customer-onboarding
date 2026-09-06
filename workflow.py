@@ -70,6 +70,7 @@ def new_record() -> dict:
         "agreement": {
             "customer_name": random.choice(RANDOM_NAMES),
             "company_name": "",
+            "account_number": "",  # billing account the discount applies to
             "start_date": date.today().isoformat(),
             "term_months": 12,
             "annual_commitment_usd": 0.0,
@@ -102,6 +103,8 @@ def validate_agreement(a: dict) -> list[str]:
         errs.append("Customer name is required.")
     if not str(a.get("company_name", "")).strip():
         errs.append("Company name is required.")
+    if not str(a.get("account_number", "")).strip():
+        errs.append("Account number is required (the billing account the discount applies to).")
 
     try:
         commit = float(a.get("annual_commitment_usd") or 0)

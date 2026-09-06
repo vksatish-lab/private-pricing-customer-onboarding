@@ -110,13 +110,12 @@ def render_history(rec: dict) -> None:
 def render_agreement_preview(rec: dict) -> None:
     a = rec["agreement"]
     end = wf.compute_end_date(a["start_date"], a["term_months"])
-    years = int(a["term_months"]) // 12
     lines = [
         f"**Private Pricing Agreement — {rec['id']}**",
         f"- **Customer:** {a['company_name'] or '—'}  (signer: {a['customer_name']})",
+        f"- **Account number:** {a.get('account_number') or '—'}",
         f"- **Term:** {a['start_date']} → {end}  ({a['term_months']} months)",
-        f"- **Committed spend:** {_money(a['annual_commitment_usd'])}/yr"
-        f"  ·  total {_money(float(a['annual_commitment_usd']) * years)}",
+        f"- **Committed spend:** {_money(a['annual_commitment_usd'])}/yr",
         f"- **Currency / billing:** {wf.STAMPED['currency']} · {wf.STAMPED['billing']}",
     ]
     model = a["discount_model"]
@@ -149,6 +148,13 @@ def render_agreement_form(rec: dict) -> None:
     c1, c2 = st.columns(2)
     customer_name = c1.text_input("Customer name (signer)", value=a["customer_name"], key=f"cn_{rid}")
     company_name = c2.text_input("Company name", value=a["company_name"], key=f"co_{rid}")
+
+    account_number = st.text_input(
+        "Account number",
+        value=a.get("account_number", ""),
+        key=f"an_{rid}",
+        help="The billing account this discount will be applied to.",
+    )
 
     c1, c2, c3 = st.columns(3)
     start_date = c1.date_input("Start date", value=_parse_date(a["start_date"]), key=f"sd_{rid}")
@@ -207,6 +213,7 @@ def render_agreement_form(rec: dict) -> None:
     edited = {
         "customer_name": customer_name,
         "company_name": company_name,
+        "account_number": account_number,
         "start_date": start_date.isoformat(),
         "term_months": term_months,
         "annual_commitment_usd": commitment,

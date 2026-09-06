@@ -21,6 +21,7 @@ def _valid_agreement_record() -> dict:
     rec = new_record()
     rec["agreement"].update({
         "company_name": "Northwind Corp",
+        "account_number": "ACME-100428",
         "annual_commitment_usd": 2_000_000,
         "term_months": 36,
         "discount_model": "cross_service",
@@ -53,6 +54,11 @@ class Validation(unittest.TestCase):
         a = _valid_agreement_record()["agreement"]
         a["company_name"] = "   "
         self.assertIn("Company name is required.", validate_agreement(a))
+
+    def test_missing_account_number(self):
+        a = _valid_agreement_record()["agreement"]
+        a["account_number"] = ""
+        self.assertTrue(any("Account number is required" in e for e in validate_agreement(a)))
 
     def test_commitment_not_positive(self):
         a = _valid_agreement_record()["agreement"]

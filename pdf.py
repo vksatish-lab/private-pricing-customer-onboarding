@@ -30,17 +30,16 @@ def _pct(x) -> str:
 def _pricing_rows(record: dict) -> list[tuple[str, str]]:
     a = record["agreement"]
     end = compute_end_date(a["start_date"], a["term_months"])
-    years = int(a["term_months"]) // 12
     model = a["discount_model"]
 
     rows: list[tuple[str, str]] = [
+        ("Account number", a.get("account_number") or "________________"),
         ("Effective date", a["start_date"]),
         ("Contract term", f"{a['term_months']} months"),
         ("End date", end),
         ("Currency", STAMPED["currency"]),
         ("Billing", STAMPED["billing"].capitalize()),
         ("Annual committed spend", _money(a["annual_commitment_usd"])),
-        ("Total committed value", _money(float(a["annual_commitment_usd"]) * years)),
         ("Discount model", DISCOUNT_MODEL_LABEL[model]),
     ]
     if model in ("cross_service", "both"):
