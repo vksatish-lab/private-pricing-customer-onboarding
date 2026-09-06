@@ -1,7 +1,7 @@
 """Private Pricing Customer Onboarding -- Streamlit portal for Sales.
 
-Flow (this build):  author agreement  ->  generate agreement  ->  send for
-signature  ->  (mock) customer signs.  Billing setup comes next.
+Flow:  author agreement -> generate -> send for signature -> (mock) customer
+signs -> provision billing (resolve discounts to a per-SKU rate table).
 
 State lives in store.py (one JSON file). st.session_state only remembers which
 onboarding is open. Every button calls workflow.apply(), persists, and reruns --
@@ -9,10 +9,12 @@ so the screen is always derived from the record's status.
 """
 from __future__ import annotations
 
+import json
 from datetime import date
 
 import streamlit as st
 
+import engine
 import store
 import workflow as wf
 from catalog import SERVICE_NAMES
@@ -28,6 +30,7 @@ STEPS = [
     ("AGREEMENT_READY", "Agreement", "📄"),
     ("PENDING_SIGNATURE", "Signature", "🖊️"),
     ("SIGNED", "Signed", "🎉"),
+    ("ACTIVE", "Billing", "💳"),
 ]
 
 _TRACKER_CSS = """
@@ -277,19 +280,91 @@ def screen_pending_signature(rec: dict) -> None:
         st.rerun()
 
 
+def _render_billing_review(config: dict, table: dict) -> None:
+    """The private pricing table + a summary. Used on both SIGNED and ACTIVE."""
+    cross = config.get("cross_service_discount_pct")
+    bits: list[str] = []
+    if cross is not None:
+        bits.append(f"Cross-service baseline **{cross}%**")
+    for rule in config["discount_rules"]:
+        bits.append(f"{rule['description']} **{rule['discount_pct']}%**")
+    st.markdown(("  ·  ".join(bits) or "No discounts.").replace("$", "\\$"))
+
+    s = table["summary"]
+    note = f"{s['skus_discounted']} of {s['skus_total']} SKUs discounted · {s['skus_at_list']} at list price"
+    if s["skus_at_list_ids"]:
+        note += "  (" + ", ".join(s["skus_at_list_ids"]) + ")"
+    st.caption(note)
+
+    rows = [
+        {
+            "SKU": ln["sku_id"],
+            "Service": ln["service"],
+            "Unit": ln["unit"],
+            "List $": ln["list_price"],
+            "Disc %": ln["discount_pct"],
+            "Effective $": ln["effective_price"],
+            "Applied rule": ln["applied_rule"] or "list price",
+        }
+        for ln in table["lines"]
+    ]
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
 def screen_signed(rec: dict) -> None:
     sig = rec["signature"]
     st.subheader("4 · Signed")
     st.success(f"✅  Signed by **{sig['signer_name']}** on {sig['signed_at']} (UTC).")
     render_agreement_preview(rec)
     download_pdf_button(rec, "⬇  Download signed agreement PDF")
+
     st.divider()
-    st.subheader("Next: billing setup")
+    st.subheader("5 · Billing configuration")
     st.caption(
-        "Capture the negotiated rates and provision the customer for billing — "
-        "resolve the discount policy against the public catalog. Built in the next iteration."
+        "Resolve the agreement's discounts against the public catalog. Review, then provision."
     )
-    st.button("⚙  Set up billing", disabled=True)
+    config = engine.build_billing_config(rec)
+    table = engine.resolve_rate_table(config)
+    _render_billing_review(config, table)
+
+    if st.button("💳  Provision billing account", type="primary", key=f"prov_{rec['id']}"):
+        store.upsert(wf.apply(rec, "provision_billing"))
+        st.balloons()
+        st.rerun()
+
+
+def screen_active(rec: dict) -> None:
+    cfg = rec["billing_config"]
+    st.subheader("5 · Billing — active")
+    st.success(
+        f"✅  Provisioned {cfg['provisioned_at']} (UTC) to account **{cfg['account_number']}**."
+    )
+    st.caption(
+        f"Effective {cfg['effective_from']} → {cfg['effective_to']} · "
+        f"{cfg['currency']} · price book {cfg['price_book_date']}"
+    )
+
+    table = engine.resolve_rate_table(cfg)
+    _render_billing_review(cfg, table)
+
+    c1, c2 = st.columns(2)
+    c1.download_button(
+        "⬇  Billing config (JSON)",
+        data=json.dumps(cfg, indent=2),
+        file_name=f"{cfg['account_number']}-billing-config.json",
+        mime="application/json",
+        key=f"cfg_json_{rec['id']}",
+    )
+    c2.download_button(
+        "⬇  Rate table (CSV)",
+        data=engine.rate_table_to_csv(table, cfg),
+        file_name=f"{cfg['account_number']}-rate-table.csv",
+        mime="text/csv",
+        key=f"rt_csv_{rec['id']}",
+    )
+
+    with st.expander("Billing config JSON"):
+        st.json(cfg)
 
 
 SCREENS = {
@@ -297,6 +372,7 @@ SCREENS = {
     "AGREEMENT_READY": screen_agreement_ready,
     "PENDING_SIGNATURE": screen_pending_signature,
     "SIGNED": screen_signed,
+    "ACTIVE": screen_active,
 }
 
 

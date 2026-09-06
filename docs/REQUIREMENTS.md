@@ -20,7 +20,7 @@ to the billing team.
 ## Workflow
 
 ```
-DRAFT  ──generate_agreement──▶  AGREEMENT_READY  ──send_for_signature──▶  PENDING_SIGNATURE  ──mark_signed──▶  SIGNED  ──▶  ACTIVE (billing)
+DRAFT  ──generate_agreement──▶  AGREEMENT_READY  ──send_for_signature──▶  PENDING_SIGNATURE  ──mark_signed──▶  SIGNED  ──provision_billing──▶  ACTIVE
   ▲                                    │
   └──────── update_agreement ──────────┘   (editing a generated agreement reverts it to DRAFT)
 ```
@@ -60,14 +60,33 @@ overrides, flat-rate (absolute) pricing, a live coverage helper.
 Tracker · Step 1 form · generate agreement (+ PDF) · send for signature · mock
 "mark signed" · history log · JSON persistence · state-machine tests.
 
-## Next iteration — Billing setup (`SIGNED → ACTIVE`)
+## Billing setup (`SIGNED → ACTIVE`) — built
 
-Capture the negotiated rates and provision the customer:
-- resolve the agreement's discount policy against `catalog.py` (precedence:
-  per-service > cross-service > list) into a per-SKU **rate preview**;
-- the durable artifact is the compact **discount policy** (+ effective dates), not a
-  materialized per-customer price list;
-- assign the account number;
-- export the billing config.
+`provision_billing` builds a **billing config** JSON stored on the record:
 
-Later still: usage/volume tiers evaluated at rating time; real e-signature; multi-user.
+```jsonc
+{
+  "kind": "private-pricing-billing-config", "version": "1.0",
+  "onboarding_ref", "account_number", "customer",
+  "currency", "billing", "effective_from", "effective_to",
+  "annual_committed_spend_usd", "price_book_date", "provisioned_at",
+  "cross_service_discount_pct": 12 | null,     // flat baseline
+  "discount_rules": [                          // service-specific only
+    { "id": "ssd-claude-code", "type": "service_specific_discount",
+      "description": "...", "discount_pct": 20,
+      "match": { "all": [ { "field": "service_code", "op": "eq", "value": "CLAUDE_CODE" } ] } }
+  ]
+}
+```
+
+- **`match` grammar:** leaf `{field, op: eq|in, value}` over catalog fields
+  (`service_code`, `id`, `unit`, `price_source`); combinators `{all:[...]}` / `{any:[...]}`.
+- **Resolution (per SKU):** first matching `discount_rules` entry → else
+  `cross_service_discount_pct` if set → else list price. Precedence is by rule type
+  (service-specific beats cross-service); no explicit priority field.
+- The per-SKU **rate table is derived on demand** from config + current catalog —
+  never persisted. Exports: config JSON, rate table CSV.
+- The account number is entered by Sales on the Step 1 form.
+
+Later: per-SKU override rules; usage/volume tiers evaluated at rating time; real
+e-signature; multi-user.

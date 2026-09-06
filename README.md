@@ -8,7 +8,7 @@ Built as a **stateful workflow**: each onboarding is a record that carries its
 state through the steps, persists across restarts, and shows up on a tracker.
 
 ```
-DRAFT ──generate──▶ AGREEMENT_READY ──send──▶ PENDING_SIGNATURE ──sign──▶ SIGNED ──▶ (billing setup, next)
+DRAFT ──generate──▶ AGREEMENT_READY ──send──▶ PENDING_SIGNATURE ──sign──▶ SIGNED ──provision──▶ ACTIVE
 ```
 
 ## Run it
@@ -40,25 +40,29 @@ python -m unittest discover -s tests
 - **Step 2 · Generate agreement** — validation guard, then a one-page **Private Pricing Agreement PDF** (downloadable). Editing after this reverts to Draft.
 - **Step 3 · Send for signature** — marks it sent (stands in for DocuSign).
 - **Step 4 · Mark as signed** — a mock button for the customer action; records signer + timestamp.
+- **Step 5 · Provision billing** (`SIGNED → ACTIVE`) — resolve the agreement's
+  discounts into a **billing config** (JSON) and a derived **private pricing table**:
+  - the cross-service discount is a flat `cross_service_discount_pct`
+  - each service-specific discount is a rule with a `match` expression
+    (`{field: service_code, op: eq, value: CLAUDE_CODE}`) the billing engine
+    filters the catalog with — SKUs are never hard-listed
+  - per SKU: first matching rule → else the cross-service baseline → else list price
+  - the per-SKU rate table is **derived on demand**, never stored (list prices can
+    change; the config still resolves correctly)
+  - exports: billing config JSON + rate table CSV
 - **History** — every transition is logged on the record (audit trail).
 - Persistence in one JSON file; atomic writes.
-
-## Not built yet
-
-**Billing setup** (`SIGNED → ACTIVE`): capture the negotiated rates and provision
-the customer — resolve the discount policy against the public catalog
-(`catalog.py`) into a per-SKU rate schedule. The catalog and the placeholder
-button are in place.
 
 ## Layout
 
 ```
 app.py         Streamlit UI (thin — the wizard glue)
 workflow.py    pure state machine: new_record, validate_agreement, apply(record, action)
+engine.py      billing config builder + match-expression evaluator + rate resolver (pure)
 store.py       JSON persistence (dict of records by id)
 pdf.py         agreement PDF via fpdf2 (pure function of the record)
-catalog.py     the public product catalog + price book (for billing setup)
-tests/         unittest for workflow.py
+catalog.py     the public product catalog + price book + service-code enum
+tests/         unittest for workflow.py and engine.py
 ```
 
 `workflow.py` has no Streamlit or I/O imports — the state machine is testable in

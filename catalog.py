@@ -11,6 +11,15 @@ from __future__ import annotations
 PRICE_BOOK_DATE = "2026-08-01"
 CURRENCY = "USD"
 
+# Stable machine code for each service. `match` expressions in a billing config
+# target `service_code`, not the display name.
+SERVICE_CODES = {
+    "Claude API": "CLAUDE_API",
+    "Claude Code": "CLAUDE_CODE",
+    "Claude for Work": "CLAUDE_FOR_WORK",
+    "Server Tools": "SERVER_TOOLS",
+}
+
 # priceSource: "public"      -> Anthropic published list price (per 1M tokens)
 #              "illustrative" -> plausible placeholder so the catalog is complete
 _MODELS = [
@@ -68,6 +77,8 @@ def _build_skus() -> list[dict]:
         {"id": "TOOL-CODE-EXEC", "service": "Server Tools", "display_name": "Code execution tool",
          "unit": "per_1k_calls", "list_price": 5.0, "price_source": "illustrative"},
     ]
+    for s in skus:
+        s["service_code"] = SERVICE_CODES[s["service"]]
     return skus
 
 
@@ -85,3 +96,13 @@ SERVICE_DESCRIPTIONS = {
 
 def skus_for_service(service: str) -> list[dict]:
     return [s for s in SKUS if s["service"] == service]
+
+
+# Bundled form the engine consumes (and tests can pass a stand-in).
+CATALOG: dict = {
+    "price_book_date": PRICE_BOOK_DATE,
+    "currency": CURRENCY,
+    "service_names": SERVICE_NAMES,
+    "service_codes": SERVICE_CODES,
+    "skus": SKUS,
+}

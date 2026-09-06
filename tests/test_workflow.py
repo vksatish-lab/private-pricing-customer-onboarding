@@ -131,6 +131,22 @@ class Transitions(unittest.TestCase):
         with self.assertRaises(WorkflowError):
             apply(r, "update_agreement", {"agreement": {"company_name": "New Name"}})
 
+    def test_provision_billing(self):
+        r = _valid_agreement_record()
+        for act in ("generate_agreement", "send_for_signature", "mark_signed", "provision_billing"):
+            r = apply(r, act)
+        self.assertEqual(r["status"], "ACTIVE")
+        cfg = r["billing_config"]
+        self.assertEqual(cfg["kind"], "private-pricing-billing-config")
+        self.assertEqual(cfg["account_number"], "ACME-100428")
+        self.assertIsNotNone(cfg["provisioned_at"])
+        self.assertEqual(r["history"][-1]["action"], "provision_billing")
+
+    def test_provision_requires_signed(self):
+        r = apply(_valid_agreement_record(), "generate_agreement")
+        with self.assertRaises(WorkflowError):
+            apply(r, "provision_billing")
+
     def test_apply_does_not_mutate_input(self):
         r = _valid_agreement_record()
         before = r["status"]

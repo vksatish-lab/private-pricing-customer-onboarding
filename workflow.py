@@ -18,13 +18,14 @@ from datetime import date, datetime, timedelta, timezone
 
 from catalog import SERVICE_NAMES
 
-STATUSES = ["DRAFT", "AGREEMENT_READY", "PENDING_SIGNATURE", "SIGNED"]
+STATUSES = ["DRAFT", "AGREEMENT_READY", "PENDING_SIGNATURE", "SIGNED", "ACTIVE"]
 
 STATUS_LABEL = {
     "DRAFT": "Draft",
     "AGREEMENT_READY": "Agreement ready",
     "PENDING_SIGNATURE": "Pending signature",
     "SIGNED": "Signed",
+    "ACTIVE": "Active",
 }
 
 # action -> (required_from_status, resulting_status)
@@ -32,6 +33,7 @@ TRANSITIONS = {
     "generate_agreement": ("DRAFT", "AGREEMENT_READY"),
     "send_for_signature": ("AGREEMENT_READY", "PENDING_SIGNATURE"),
     "mark_signed": ("PENDING_SIGNATURE", "SIGNED"),
+    "provision_billing": ("SIGNED", "ACTIVE"),
 }
 
 DISCOUNT_MODELS = ["cross_service", "per_service", "both"]
@@ -81,6 +83,7 @@ def new_record() -> dict:
         "document": None,             # {"generated_at": iso}
         "sent_for_signature_at": None,
         "signature": None,            # {"signer_name": str, "signed_at": iso}
+        "billing_config": None,       # private-pricing-billing-config JSON, set at provisioning
         "history": [{"at": ts, "action": "create", "from": None, "to": "DRAFT"}],
     }
 
@@ -195,6 +198,13 @@ def apply(record: dict, action: str, payload: dict | None = None) -> dict:
             "signer_name": payload.get("signer_name") or rec["agreement"]["customer_name"],
             "signed_at": _now(),
         }
+
+    elif action == "provision_billing":
+        if not str(rec["agreement"].get("account_number", "")).strip():
+            raise WorkflowError("An account number is required before provisioning.")
+        from engine import build_billing_config, stamp_provisioned  # lazy: avoids import cycle
+
+        rec["billing_config"] = stamp_provisioned(build_billing_config(rec))
 
     rec["status"] = dst
     rec["updated_at"] = _now()
