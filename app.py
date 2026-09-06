@@ -423,38 +423,55 @@ def _tab_invoicing(rec: dict) -> None:
     st.divider()
     invoices = rec.get("invoices", [])
     if not invoices:
-        st.caption("No invoices yet.")
+        st.caption("No invoices yet — enter usage above and generate one.")
         return
-    st.markdown(f"**Invoices — {len(invoices)}**")
-    for inv in reversed(invoices):
-        with st.expander(
-            f"{inv['billing_period']}  ·  {inv['invoice_number']}  ·  "
-            f"{inv['currency']} {inv['total']:,.2f} net"
-        ):
-            st.caption(
-                f"Issued {inv.get('issued_at') or '-'} (UTC) · "
-                f"gross {inv['currency']} {inv['gross_subtotal']:,.2f} · "
-                f"discount -{inv['discount_total']:,.2f} · "
-                f"{len(inv['lines'])} line(s)"
-            )
-            st.dataframe(
-                [
-                    {
-                        "SKU": ln["sku_id"], "Description": ln["description"], "Unit": ln["unit"],
-                        "Qty": ln["quantity"], "List $/u": ln["list_price"], "Disc %": ln["discount_pct"],
-                        "Net $/u": ln["unit_price"], "Gross $": ln["gross_amount"], "Amount $": ln["amount"],
-                    }
-                    for ln in inv["lines"]
-                ],
-                hide_index=True, use_container_width=True,
-            )
+
+    def _invoice_block(inv: dict) -> None:
+        st.caption(
+            f"Issued {inv.get('issued_at') or '-'} (UTC) · {len(inv['lines'])} line(s)"
+        )
+        st.dataframe(
+            [
+                {
+                    "SKU": ln["sku_id"], "Description": ln["description"], "Unit": ln["unit"],
+                    "Qty": ln["quantity"], "List $/u": ln["list_price"], "Disc %": ln["discount_pct"],
+                    "Net $/u": ln["unit_price"], "Gross $": ln["gross_amount"], "Amount $": ln["amount"],
+                }
+                for ln in inv["lines"]
+            ],
+            hide_index=True, use_container_width=True,
+        )
+        st.markdown(
+            f"Gross **{inv['currency']} {inv['gross_subtotal']:,.2f}**  ·  "
+            f"discount **-{inv['discount_total']:,.2f}**  ·  "
+            f"net total **{inv['currency']} {inv['total']:,.2f}**".replace("$", "\\$")
+        )
+        try:
+            pdf_bytes = build_invoice_pdf(inv)
             st.download_button(
-                "⬇  Invoice PDF",
-                data=build_invoice_pdf(inv),
+                "⬇  Download invoice PDF",
+                data=pdf_bytes,
                 file_name=f"{inv['invoice_number']}.pdf",
                 mime="application/pdf",
+                type="primary",
                 key=f"inv_pdf_{rid}_{inv['billing_period']}",
             )
+        except Exception as exc:  # noqa: BLE001 -- surface the reason instead of a blank
+            st.error(f"Could not build the invoice PDF: {exc}")
+
+    newest = invoices[-1]
+    st.markdown(f"### Latest invoice — {newest['billing_period']}  ·  {newest['invoice_number']}")
+    _invoice_block(newest)
+
+    earlier = list(reversed(invoices[:-1]))
+    if earlier:
+        st.markdown("**Earlier invoices**")
+        for inv in earlier:
+            with st.expander(
+                f"{inv['billing_period']}  ·  {inv['invoice_number']}  ·  "
+                f"{inv['currency']} {inv['total']:,.2f} net"
+            ):
+                _invoice_block(inv)
 
 
 def screen_active(rec: dict) -> None:

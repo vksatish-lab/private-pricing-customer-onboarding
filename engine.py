@@ -198,13 +198,11 @@ INVOICE_KIND = "private-pricing-invoice"
 # Plausible one-month usage for the "Load sample usage" button.
 # per_mtok -> millions of tokens ; per_seat_month -> seats ; per_1k_calls -> thousands of calls
 _SAMPLE_USAGE = {
-    "API-OPUS-5-INPUT": 120, "API-OPUS-5-OUTPUT": 42, "API-OPUS-5-CACHE-READ": 310,
-    "API-OPUS-5-CACHE-WRITE-5M": 65,
-    "API-SONNET-5-INPUT": 900, "API-SONNET-5-OUTPUT": 260, "API-SONNET-5-CACHE-READ": 2400,
-    "API-HAIKU-4-5-INPUT": 5200, "API-HAIKU-4-5-OUTPUT": 1450,
+    "API-OPUS-5-INPUT": 120,
+    "API-OPUS-5-OUTPUT": 42,
     "CLAUDE-CODE-USAGE": 220,
-    "CLAUDE-ENTERPRISE-SEAT": 45, "CLAUDE-TEAM-SEAT": 20,
-    "TOOL-WEB-SEARCH": 18, "TOOL-CODE-EXEC": 9,
+    "CLAUDE-ENTERPRISE-SEAT": 45,
+    "TOOL-WEB-SEARCH": 18,
 }
 
 

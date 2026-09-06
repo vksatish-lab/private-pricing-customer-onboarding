@@ -67,7 +67,7 @@ workflow.py    pure state machine: new_record, validate_agreement, apply(record,
 engine.py      billing config builder + match-expression evaluator + rate resolver + invoice builder (pure)
 store.py       JSON persistence (dict of records by id)
 pdf.py         agreement PDF + invoice PDF via fpdf2 (pure functions)
-catalog.py     the public product catalog + price book + service-code enum
+catalog.py     the public product catalog (5 SKUs, one per service area) + service-code enum
 tests/         unittest for workflow.py and engine.py
 ```
 

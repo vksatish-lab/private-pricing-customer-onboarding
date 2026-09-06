@@ -183,13 +183,13 @@ class Invoice(unittest.TestCase):
 
     def test_zero_and_unknown_usage_ignored(self):
         inv = build_invoice(self._cfg(), "2026-09", {
-            "API-OPUS-5-INPUT": 0, "NOT-A-SKU": 999, "API-SONNET-5-INPUT": 10,
+            "API-OPUS-5-INPUT": 0, "NOT-A-SKU": 999, "API-OPUS-5-OUTPUT": 10,
         })
-        self.assertEqual([ln["sku_id"] for ln in inv["lines"]], ["API-SONNET-5-INPUT"])
+        self.assertEqual([ln["sku_id"] for ln in inv["lines"]], ["API-OPUS-5-OUTPUT"])
 
     def test_sample_usage_produces_a_nonempty_invoice(self):
         inv = build_invoice(self._cfg(), "2026-10", sample_usage())
-        self.assertGreater(len(inv["lines"]), 5)
+        self.assertGreaterEqual(len(inv["lines"]), 3)
         self.assertGreater(inv["total"], 0)
         self.assertLess(inv["total"], inv["gross_subtotal"])
 

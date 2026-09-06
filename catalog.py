@@ -20,66 +20,32 @@ SERVICE_CODES = {
     "Server Tools": "SERVER_TOOLS",
 }
 
-# priceSource: "public"      -> Anthropic published list price (per 1M tokens)
-#              "illustrative" -> plausible placeholder so the catalog is complete
-_MODELS = [
-    # (code, display, input $/MTok, output $/MTok)
-    ("OPUS-5", "Claude Opus 5", 5.0, 25.0),
-    ("SONNET-5", "Claude Sonnet 5", 3.0, 15.0),
-    ("HAIKU-4-5", "Claude Haiku 4.5", 1.0, 5.0),
+# A deliberately small catalog for the prototype -- 5 SKUs spread across the
+# 4 services, enough to show per-service vs cross-service resolution and
+# "uncovered -> list price".
+# price_source: "public" -> Anthropic published list price ; "illustrative" -> placeholder
+_SKUS = [
+    ("API-OPUS-5-INPUT",       "Claude API",      "Claude Opus 5 - input tokens",   "per_mtok",        5.0,  "public"),
+    ("API-OPUS-5-OUTPUT",      "Claude API",      "Claude Opus 5 - output tokens",  "per_mtok",       25.0,  "public"),
+    ("CLAUDE-CODE-USAGE",      "Claude Code",     "Claude Code - blended usage",    "per_mtok",        6.0,  "illustrative"),
+    ("CLAUDE-ENTERPRISE-SEAT", "Claude for Work", "Claude for Work - Enterprise seat", "per_seat_month", 60.0, "illustrative"),
+    ("TOOL-WEB-SEARCH",        "Server Tools",    "Web search tool",               "per_1k_calls",   10.0,  "illustrative"),
 ]
-_LINES = [
-    ("INPUT", "input tokens", 1.0),
-    ("OUTPUT", "output tokens", None),  # uses the model's output price
-    ("CACHE-WRITE-5M", "cache write (5-min)", 1.25),
-    ("CACHE-WRITE-1H", "cache write (1-hour)", 2.0),
-    ("CACHE-READ", "cache read", 0.1),
-]
-
-
-def _round4(x: float) -> float:
-    return round(x, 4)
 
 
 def _build_skus() -> list[dict]:
-    skus: list[dict] = []
-    for code, name, in_price, out_price in _MODELS:
-        for line_code, line_name, mult in _LINES:
-            price = out_price if line_code == "OUTPUT" else _round4(in_price * mult)
-            skus.append({
-                "id": f"API-{code}-{line_code}",
-                "service": "Claude API",
-                "display_name": f"{name} — {line_name}",
-                "unit": "per_mtok",
-                "list_price": price,
-                "price_source": "public",
-            })
-    # Batch (50% of standard, input/output only)
-    for code, name, in_price, out_price in _MODELS[:2]:
-        skus.append({"id": f"API-{code}-INPUT-BATCH", "service": "Claude API",
-                     "display_name": f"{name} — input (Batch)", "unit": "per_mtok",
-                     "list_price": _round4(in_price * 0.5), "price_source": "public"})
-        skus.append({"id": f"API-{code}-OUTPUT-BATCH", "service": "Claude API",
-                     "display_name": f"{name} — output (Batch)", "unit": "per_mtok",
-                     "list_price": _round4(out_price * 0.5), "price_source": "public"})
-
-    skus += [
-        {"id": "CLAUDE-CODE-USAGE", "service": "Claude Code", "display_name": "Claude Code — blended usage",
-         "unit": "per_mtok", "list_price": 6.0, "price_source": "illustrative"},
-        {"id": "CLAUDE-CODE-SEAT", "service": "Claude Code", "display_name": "Claude Code — seat",
-         "unit": "per_seat_month", "list_price": 30.0, "price_source": "illustrative"},
-        {"id": "CLAUDE-TEAM-SEAT", "service": "Claude for Work", "display_name": "Claude for Work — Team seat",
-         "unit": "per_seat_month", "list_price": 30.0, "price_source": "illustrative"},
-        {"id": "CLAUDE-ENTERPRISE-SEAT", "service": "Claude for Work", "display_name": "Claude for Work — Enterprise seat",
-         "unit": "per_seat_month", "list_price": 60.0, "price_source": "illustrative"},
-        {"id": "TOOL-WEB-SEARCH", "service": "Server Tools", "display_name": "Web search tool",
-         "unit": "per_1k_calls", "list_price": 10.0, "price_source": "illustrative"},
-        {"id": "TOOL-CODE-EXEC", "service": "Server Tools", "display_name": "Code execution tool",
-         "unit": "per_1k_calls", "list_price": 5.0, "price_source": "illustrative"},
+    return [
+        {
+            "id": sku_id,
+            "service": service,
+            "service_code": SERVICE_CODES[service],
+            "display_name": display_name,
+            "unit": unit,
+            "list_price": list_price,
+            "price_source": price_source,
+        }
+        for sku_id, service, display_name, unit, list_price, price_source in _SKUS
     ]
-    for s in skus:
-        s["service_code"] = SERVICE_CODES[s["service"]]
-    return skus
 
 
 SKUS: list[dict] = _build_skus()
