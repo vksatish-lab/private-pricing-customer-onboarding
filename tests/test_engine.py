@@ -8,9 +8,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from catalog import CATALOG  # noqa: E402
 from engine import (  # noqa: E402
     build_billing_config,
+    build_invoice,
     match_sku,
     rate_table_to_csv,
     resolve_rate_table,
+    sample_usage,
 )
 from workflow import apply, new_record  # noqa: E402
 
@@ -152,6 +154,44 @@ class Resolve(unittest.TestCase):
         lines = csv_text.strip().splitlines()
         self.assertEqual(len(lines), len(CATALOG["skus"]) + 1)
         self.assertTrue(lines[0].startswith("sku_id,service,service_code,unit,list_price"))
+
+
+class Invoice(unittest.TestCase):
+    def _cfg(self):
+        return build_billing_config(_signed_record(
+            discount_model="both", cross_service_pct=10,
+            per_service=[{"service": "Claude Code", "pct": 25}],
+        ))
+
+    def test_line_math_gross_and_net(self):
+        cfg = self._cfg()
+        inv = build_invoice(cfg, "2026-09", {
+            "API-OPUS-5-INPUT": 100,      # list 5.00, cross 10% -> net 4.50
+            "CLAUDE-CODE-USAGE": 50,      # list 6.00, ssd 25%  -> net 4.50
+        })
+        self.assertEqual(inv["kind"], "private-pricing-invoice")
+        self.assertEqual(inv["invoice_number"], f"INV-{cfg['account_number']}-2026-09")
+        self.assertIsNone(inv["issued_at"])
+        by_id = {ln["sku_id"]: ln for ln in inv["lines"]}
+        self.assertEqual(by_id["API-OPUS-5-INPUT"]["gross_amount"], 500.0)
+        self.assertEqual(by_id["API-OPUS-5-INPUT"]["amount"], 450.0)
+        self.assertEqual(by_id["CLAUDE-CODE-USAGE"]["amount"], 225.0)
+        self.assertEqual(inv["gross_subtotal"], 800.0)
+        self.assertEqual(inv["subtotal"], 675.0)
+        self.assertEqual(inv["discount_total"], 125.0)
+        self.assertEqual(inv["total"], inv["subtotal"])
+
+    def test_zero_and_unknown_usage_ignored(self):
+        inv = build_invoice(self._cfg(), "2026-09", {
+            "API-OPUS-5-INPUT": 0, "NOT-A-SKU": 999, "API-SONNET-5-INPUT": 10,
+        })
+        self.assertEqual([ln["sku_id"] for ln in inv["lines"]], ["API-SONNET-5-INPUT"])
+
+    def test_sample_usage_produces_a_nonempty_invoice(self):
+        inv = build_invoice(self._cfg(), "2026-10", sample_usage())
+        self.assertGreater(len(inv["lines"]), 5)
+        self.assertGreater(inv["total"], 0)
+        self.assertLess(inv["total"], inv["gross_subtotal"])
 
 
 if __name__ == "__main__":

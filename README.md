@@ -50,6 +50,12 @@ python -m unittest discover -s tests
   - the per-SKU rate table is **derived on demand**, never stored (list prices can
     change; the config still resolves correctly)
   - exports: billing config JSON + rate table CSV
+- **Invoicing** (on the ACTIVE screen, "Invoicing" tab) — pick a billing month,
+  enter per-SKU usage (editable table, or "Load sample usage"), and generate that
+  month's invoice: `amount = quantity × net unit price`, with each line and the
+  totals showing **gross (list) and net (post-discount)**. One invoice per month
+  (regenerating replaces it). Simple metered billing — no commitment drawdown /
+  true-up / overage. Each invoice downloads as a PDF.
 - **History** — every transition is logged on the record (audit trail).
 - Persistence in one JSON file; atomic writes.
 
@@ -58,9 +64,9 @@ python -m unittest discover -s tests
 ```
 app.py         Streamlit UI (thin — the wizard glue)
 workflow.py    pure state machine: new_record, validate_agreement, apply(record, action)
-engine.py      billing config builder + match-expression evaluator + rate resolver (pure)
+engine.py      billing config builder + match-expression evaluator + rate resolver + invoice builder (pure)
 store.py       JSON persistence (dict of records by id)
-pdf.py         agreement PDF via fpdf2 (pure function of the record)
+pdf.py         agreement PDF + invoice PDF via fpdf2 (pure functions)
 catalog.py     the public product catalog + price book + service-code enum
 tests/         unittest for workflow.py and engine.py
 ```

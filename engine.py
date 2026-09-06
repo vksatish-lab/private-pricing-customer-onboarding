@@ -190,3 +190,87 @@ def stamp_provisioned(config: dict) -> dict:
     config = dict(config)
     config["provisioned_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     return config
+
+
+# --------------------------------------------------------------- invoicing
+INVOICE_KIND = "private-pricing-invoice"
+
+# Plausible one-month usage for the "Load sample usage" button.
+# per_mtok -> millions of tokens ; per_seat_month -> seats ; per_1k_calls -> thousands of calls
+_SAMPLE_USAGE = {
+    "API-OPUS-5-INPUT": 120, "API-OPUS-5-OUTPUT": 42, "API-OPUS-5-CACHE-READ": 310,
+    "API-OPUS-5-CACHE-WRITE-5M": 65,
+    "API-SONNET-5-INPUT": 900, "API-SONNET-5-OUTPUT": 260, "API-SONNET-5-CACHE-READ": 2400,
+    "API-HAIKU-4-5-INPUT": 5200, "API-HAIKU-4-5-OUTPUT": 1450,
+    "CLAUDE-CODE-USAGE": 220,
+    "CLAUDE-ENTERPRISE-SEAT": 45, "CLAUDE-TEAM-SEAT": 20,
+    "TOOL-WEB-SEARCH": 18, "TOOL-CODE-EXEC": 9,
+}
+
+
+def sample_usage() -> dict:
+    return dict(_SAMPLE_USAGE)
+
+
+def build_invoice(config: dict, month: str, usage: dict, catalog: dict | None = None) -> dict:
+    """Config + one month's usage -> an invoice (issued_at left null).
+
+    Simple metered billing: amount = quantity x net unit price. Each line also
+    carries the gross (list) unit price and amount so the invoice shows both.
+    No commitment drawdown / true-up / overage.
+    """
+    catalog = catalog or CATALOG
+    rates = {ln["sku_id"]: ln for ln in resolve_rate_table(config, catalog)["lines"]}
+    by_id = {s["id"]: s for s in catalog["skus"]}
+
+    lines: list[dict] = []
+    gross_subtotal = 0.0
+    net_subtotal = 0.0
+    for sku_id, qty in usage.items():
+        qty = float(qty or 0)
+        if qty <= 0 or sku_id not in rates:
+            continue
+        r = rates[sku_id]
+        gross_amount = round(qty * r["list_price"], 2)
+        net_amount = round(qty * r["effective_price"], 2)
+        gross_subtotal += gross_amount
+        net_subtotal += net_amount
+        lines.append({
+            "sku_id": sku_id,
+            "description": by_id[sku_id]["display_name"],
+            "unit": r["unit"],
+            "quantity": qty,
+            "list_price": r["list_price"],
+            "discount_pct": r["discount_pct"],
+            "unit_price": r["effective_price"],
+            "gross_amount": gross_amount,
+            "amount": net_amount,
+        })
+
+    lines.sort(key=lambda ln: ln["sku_id"])
+    gross_subtotal = round(gross_subtotal, 2)
+    net_subtotal = round(net_subtotal, 2)
+
+    return {
+        "kind": INVOICE_KIND,
+        "version": CONFIG_VERSION,
+        "invoice_number": f"INV-{config['account_number']}-{month}",
+        "account_number": config["account_number"],
+        "customer": dict(config["customer"]),
+        "config_ref": config["onboarding_ref"],
+        "billing_period": month,
+        "issued_at": None,
+        "currency": config["currency"],
+        "price_book_date": config["price_book_date"],
+        "lines": lines,
+        "gross_subtotal": gross_subtotal,
+        "discount_total": round(gross_subtotal - net_subtotal, 2),
+        "subtotal": net_subtotal,
+        "total": net_subtotal,
+    }
+
+
+def stamp_invoice_issued(invoice: dict) -> dict:
+    invoice = dict(invoice)
+    invoice["issued_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return invoice

@@ -88,5 +88,21 @@ Tracker · Step 1 form · generate agreement (+ PDF) · send for signature · mo
   never persisted. Exports: config JSON, rate table CSV.
 - The account number is entered by Sales on the Step 1 form.
 
-Later: per-SKU override rules; usage/volume tiers evaluated at rating time; real
-e-signature; multi-user.
+## Invoicing (within ACTIVE) — built
+
+`record_invoice` (a guarded mutation, not a state transition — status stays
+`ACTIVE`) takes a billing month + per-SKU usage and appends a
+`private-pricing-invoice` to `record["invoices"]` (one per month; regenerating a
+month replaces it; logged in history).
+
+- `build_invoice(config, month, usage, catalog)` — for each SKU with usage > 0:
+  resolve its rate from the config; `gross_amount = qty × list_price`,
+  `amount = qty × net_unit_price`. Invoice carries `gross_subtotal`,
+  `discount_total`, `subtotal`/`total` (net).
+- **Simple metered billing** — no commitment drawdown, true-up, or overage.
+- Usage entry: an editable full-catalog table (net unit price shown read-only) plus
+  a "Load sample usage" button.
+- Invoice PDF shows list and net per line and gross / discount / net totals.
+
+Later: per-SKU override rules; usage/volume tiers evaluated at rating time;
+commitment drawdown + true-up; real e-signature; multi-user.

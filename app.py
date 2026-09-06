@@ -10,6 +10,7 @@ so the screen is always derived from the record's status.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 
 import streamlit as st
@@ -333,17 +334,11 @@ def screen_signed(rec: dict) -> None:
         st.rerun()
 
 
-def screen_active(rec: dict) -> None:
-    cfg = rec["billing_config"]
-    st.subheader("5 · Billing — active")
-    st.success(
-        f"✅  Provisioned {cfg['provisioned_at']} (UTC) to account **{cfg['account_number']}**."
-    )
-    st.caption(
-        f"Effective {cfg['effective_from']} → {cfg['effective_to']} · "
-        f"{cfg['currency']} · price book {cfg['price_book_date']}"
-    )
+_MONTH_RE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
+
+def _tab_rate_table(rec: dict) -> None:
+    cfg = rec["billing_config"]
     table = engine.resolve_rate_table(cfg)
     _render_billing_review(cfg, table)
 
@@ -362,9 +357,122 @@ def screen_active(rec: dict) -> None:
         mime="text/csv",
         key=f"rt_csv_{rec['id']}",
     )
-
     with st.expander("Billing config JSON"):
         st.json(cfg)
+
+
+def _tab_invoicing(rec: dict) -> None:
+    from pdf import build_invoice_pdf
+
+    rid = rec["id"]
+    cfg = rec["billing_config"]
+    rate_by_id = {ln["sku_id"]: ln for ln in engine.resolve_rate_table(cfg)["lines"]}
+    invoices_by_month = {i["billing_period"]: i for i in rec.get("invoices", [])}
+
+    month = st.text_input(
+        "Billing month", value=date.today().strftime("%Y-%m"), key=f"month_{rid}", help="YYYY-MM",
+    )
+    valid_month = bool(_MONTH_RE.match(month))
+    if not valid_month:
+        st.warning("Enter the month as YYYY-MM.")
+
+    # `nonce` forces a fresh data_editor (re-seeded from `rows`) after Load-sample / generate.
+    nonce_key = f"usage_nonce_{rid}"
+    seed_key = f"usage_seed_{rid}"
+    st.session_state.setdefault(nonce_key, 0)
+
+    if st.button("Load sample usage", key=f"sample_{rid}"):
+        st.session_state[seed_key] = engine.sample_usage()
+        st.session_state[nonce_key] += 1
+        st.rerun()
+
+    seed = st.session_state.get(seed_key)
+    if seed is None and month in invoices_by_month:
+        seed = {ln["sku_id"]: ln["quantity"] for ln in invoices_by_month[month]["lines"]}
+    seed = seed or {}
+
+    rows = [
+        {
+            "SKU": s["id"],
+            "Service": s["service"],
+            "Unit": s["unit"],
+            "Net $/unit": rate_by_id[s["id"]]["effective_price"],
+            "Quantity": float(seed.get(s["id"], 0.0)),
+        }
+        for s in engine.CATALOG["skus"]
+    ]
+    edited = st.data_editor(
+        rows,
+        key=f"usage_editor_{rid}_{month}_{st.session_state[nonce_key]}",
+        hide_index=True,
+        use_container_width=True,
+        disabled=["SKU", "Service", "Unit", "Net $/unit"],
+        column_config={"Quantity": st.column_config.NumberColumn(min_value=0.0, step=1.0)},
+    )
+    usage = {r["SKU"]: float(r["Quantity"] or 0) for r in edited if float(r["Quantity"] or 0) > 0}
+
+    exists = month in invoices_by_month
+    label = f"{'Regenerate' if exists else 'Generate'} invoice for {month}"
+    if st.button(label, type="primary", disabled=not (valid_month and usage), key=f"gen_inv_{rid}"):
+        store.upsert(wf.apply(rec, "record_invoice", {"month": month, "usage": usage}))
+        st.session_state.pop(seed_key, None)
+        st.session_state[nonce_key] += 1
+        st.toast(f"Invoice generated for {month}")
+        st.rerun()
+
+    st.divider()
+    invoices = rec.get("invoices", [])
+    if not invoices:
+        st.caption("No invoices yet.")
+        return
+    st.markdown(f"**Invoices — {len(invoices)}**")
+    for inv in reversed(invoices):
+        with st.expander(
+            f"{inv['billing_period']}  ·  {inv['invoice_number']}  ·  "
+            f"{inv['currency']} {inv['total']:,.2f} net"
+        ):
+            st.caption(
+                f"Issued {inv.get('issued_at') or '-'} (UTC) · "
+                f"gross {inv['currency']} {inv['gross_subtotal']:,.2f} · "
+                f"discount -{inv['discount_total']:,.2f} · "
+                f"{len(inv['lines'])} line(s)"
+            )
+            st.dataframe(
+                [
+                    {
+                        "SKU": ln["sku_id"], "Description": ln["description"], "Unit": ln["unit"],
+                        "Qty": ln["quantity"], "List $/u": ln["list_price"], "Disc %": ln["discount_pct"],
+                        "Net $/u": ln["unit_price"], "Gross $": ln["gross_amount"], "Amount $": ln["amount"],
+                    }
+                    for ln in inv["lines"]
+                ],
+                hide_index=True, use_container_width=True,
+            )
+            st.download_button(
+                "⬇  Invoice PDF",
+                data=build_invoice_pdf(inv),
+                file_name=f"{inv['invoice_number']}.pdf",
+                mime="application/pdf",
+                key=f"inv_pdf_{rid}_{inv['billing_period']}",
+            )
+
+
+def screen_active(rec: dict) -> None:
+    cfg = rec["billing_config"]
+    st.subheader("5 · Billing — active")
+    st.success(
+        f"✅  Provisioned {cfg['provisioned_at']} (UTC) to account **{cfg['account_number']}**."
+    )
+    st.caption(
+        f"Effective {cfg['effective_from']} → {cfg['effective_to']} · "
+        f"{cfg['currency']} · price book {cfg['price_book_date']}"
+    )
+
+    tab_rates, tab_inv = st.tabs(["Rate table", "Invoicing"])
+    with tab_rates:
+        _tab_rate_table(rec)
+    with tab_inv:
+        _tab_invoicing(rec)
 
 
 SCREENS = {

@@ -84,6 +84,7 @@ def new_record() -> dict:
         "sent_for_signature_at": None,
         "signature": None,            # {"signer_name": str, "signed_at": iso}
         "billing_config": None,       # private-pricing-billing-config JSON, set at provisioning
+        "invoices": [],               # one private-pricing-invoice per billing month
         "history": [{"at": ts, "action": "create", "from": None, "to": "DRAFT"}],
     }
 
@@ -170,6 +171,30 @@ def apply(record: dict, action: str, payload: dict | None = None) -> dict:
                 {"at": _now(), "action": "revise", "from": "AGREEMENT_READY", "to": "DRAFT"}
             )
         rec["updated_at"] = _now()
+        return rec
+
+    # --- recording a monthly invoice (not a state transition) ---------------
+    if action == "record_invoice":
+        if status != "ACTIVE":
+            raise WorkflowError("Invoicing is only available once billing is active.")
+        month = payload.get("month")
+        usage = payload.get("usage") or {}
+        if not month:
+            raise WorkflowError("A billing month is required.")
+        if not any(float(q or 0) > 0 for q in usage.values()):
+            raise WorkflowError("Enter usage for at least one SKU.")
+
+        from engine import build_invoice, stamp_invoice_issued  # lazy: avoids import cycle
+
+        invoice = stamp_invoice_issued(build_invoice(rec["billing_config"], month, usage))
+        rec.setdefault("invoices", [])
+        rec["invoices"] = [i for i in rec["invoices"] if i["billing_period"] != month]
+        rec["invoices"].append(invoice)
+        rec["invoices"].sort(key=lambda i: i["billing_period"])
+        rec["updated_at"] = _now()
+        rec["history"].append(
+            {"at": _now(), "action": "record_invoice", "from": status, "to": status, "note": month}
+        )
         return rec
 
     # --- state transitions ---------------------------------------------------
