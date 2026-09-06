@@ -74,7 +74,7 @@ def new_record() -> dict:
             "term_months": 12,
             "annual_commitment_usd": 0.0,
             "discount_model": "cross_service",
-            "cross_service_pct": 10.0,
+            "cross_service_pct": 10,
             "per_service": [],  # [{"service": str, "pct": float}]
         },
         "document": None,             # {"generated_at": iso}

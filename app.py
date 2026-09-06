@@ -21,8 +21,29 @@ from pdf import build_agreement_pdf
 st.set_page_config(page_title="Private Pricing Onboarding", page_icon="🧾", layout="wide")
 
 MAX_PER_SERVICE_ROWS = 4
-PROGRESS = ["DRAFT", "AGREEMENT_READY", "PENDING_SIGNATURE", "SIGNED"]
-PROGRESS_LABEL = ["Draft", "Agreement", "Signature", "Signed"]
+
+# (status, tracker label, icon) in order
+STEPS = [
+    ("DRAFT", "Draft", "📝"),
+    ("AGREEMENT_READY", "Agreement", "📄"),
+    ("PENDING_SIGNATURE", "Signature", "🖊️"),
+    ("SIGNED", "Signed", "🎉"),
+]
+
+_TRACKER_CSS = """
+<style>
+.ppco-track{display:flex;align-items:flex-start;margin:2px 0 10px;}
+.ppco-step{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:104px;}
+.ppco-dot{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:20px;border:2px solid #3a3f4b;background:#20242e;color:#9aa3b2;}
+.ppco-step.done .ppco-dot{background:#16a34a;border-color:#16a34a;color:#fff;}
+.ppco-step.current .ppco-dot{border-color:#f2a900;color:#f2a900;box-shadow:0 0 0 4px rgba(242,169,0,.18);}
+.ppco-lbl{margin-top:7px;font-size:12px;color:#9aa3b2;text-align:center;}
+.ppco-step.done .ppco-lbl,.ppco-step.current .ppco-lbl{color:#e7e9ee;font-weight:600;}
+.ppco-bar{flex:1 1 auto;height:3px;background:#3a3f4b;margin:22px -8px 0;border-radius:2px;}
+.ppco-bar.done{background:#16a34a;}
+</style>
+"""
 
 
 def _parse_date(s: str) -> date:
@@ -32,6 +53,10 @@ def _parse_date(s: str) -> date:
 
 def _money(x) -> str:
     return f"${float(x):,.0f}"
+
+
+def _pct(x) -> str:
+    return f"{int(round(float(x)))}%"
 
 
 # --------------------------------------------------------------- sidebar / tracker
@@ -59,15 +84,19 @@ def render_sidebar() -> None:
 
 # --------------------------------------------------------------- progress + history
 def render_progress(status: str) -> None:
-    idx = PROGRESS.index(status)
-    cols = st.columns(len(PROGRESS))
-    for i, (col, label) in enumerate(zip(cols, PROGRESS_LABEL)):
-        if i < idx:
-            col.markdown(f"✅ ~~{label}~~")
-        elif i == idx:
-            col.markdown(f"🟡 **{label}**")
-        else:
-            col.markdown(f"⚪ {label}")
+    idx = [s[0] for s in STEPS].index(status)
+    html = ['<div class="ppco-track">']
+    for i, (_key, label, icon) in enumerate(STEPS):
+        cls = "done" if i < idx else ("current" if i == idx else "")
+        dot = "✓" if i < idx else icon
+        html.append(
+            f'<div class="ppco-step {cls}"><div class="ppco-dot">{dot}</div>'
+            f'<div class="ppco-lbl">{label}</div></div>'
+        )
+        if i < len(STEPS) - 1:
+            html.append(f'<div class="ppco-bar {"done" if i < idx else ""}"></div>')
+    html.append("</div>")
+    st.markdown(_TRACKER_CSS + "".join(html), unsafe_allow_html=True)
 
 
 def render_history(rec: dict) -> None:
@@ -92,10 +121,10 @@ def render_agreement_preview(rec: dict) -> None:
     ]
     model = a["discount_model"]
     if model in ("cross_service", "both"):
-        lines.append(f"- **Cross-service discount:** {float(a['cross_service_pct']):g}%")
+        lines.append(f"- **Cross-service discount:** {_pct(a['cross_service_pct'])}")
     if model in ("per_service", "both"):
         rows = "  ·  ".join(
-            f"{r['service']} {float(r['pct']):g}%" for r in a["per_service"] if r.get("service")
+            f"{r['service']} {_pct(r['pct'])}" for r in a["per_service"] if r.get("service")
         )
         lines.append(f"- **Per-service discounts:** {rows or '—'}")
     # escape $ so Streamlit doesn't treat "$...$" as LaTeX
@@ -147,10 +176,10 @@ def render_agreement_form(rec: dict) -> None:
         horizontal=True, key=f"dm_{rid}",
     )
 
-    cross_pct = float(a.get("cross_service_pct") or 0.0)
+    cross_pct = int(round(float(a.get("cross_service_pct") or 0)))
     if model in ("cross_service", "both"):
         cross_pct = st.number_input(
-            "Cross-service discount %", min_value=0.0, max_value=100.0, step=1.0,
+            "Cross-service discount %", min_value=0, max_value=100, step=1,
             value=cross_pct, key=f"cx_{rid}",
         )
 
@@ -168,8 +197,8 @@ def render_agreement_form(rec: dict) -> None:
                 key=f"ps_svc_{rid}_{i}", label_visibility="collapsed",
             )
             pct = cc2.number_input(
-                f"pct {i}", min_value=0.0, max_value=100.0, step=1.0,
-                value=float(row.get("pct", 0.0)),
+                f"pct {i}", min_value=0, max_value=100, step=1,
+                value=int(round(float(row.get("pct", 0)))),
                 key=f"ps_pct_{rid}_{i}", label_visibility="collapsed",
             )
             if svc != "—":
