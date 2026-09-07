@@ -176,6 +176,11 @@ class BillingPreview(unittest.TestCase):
         self.assertEqual(by_id["API-OPUS-5-INPUT"]["gross_amount"], 500.0)
         self.assertEqual(by_id["API-OPUS-5-INPUT"]["amount"], 450.0)
         self.assertEqual(by_id["CLAUDE-CODE-USAGE"]["amount"], 225.0)
+        # each line carries the service code + which rule applied, so config rows map to preview rows
+        self.assertEqual(by_id["API-OPUS-5-INPUT"]["service_code"], "CLAUDE_API")
+        self.assertEqual(by_id["API-OPUS-5-INPUT"]["applied_rule"], "cross_service")
+        self.assertEqual(by_id["CLAUDE-CODE-USAGE"]["service_code"], "CLAUDE_CODE")
+        self.assertEqual(by_id["CLAUDE-CODE-USAGE"]["applied_rule"], "ssd-claude-code")
         self.assertEqual(p["gross_subtotal"], 800.0)
         self.assertEqual(p["subtotal"], 675.0)
         self.assertEqual(p["discount_total"], 125.0)

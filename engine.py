@@ -239,11 +239,13 @@ def build_billing_preview(config: dict, month: str, usage: dict, catalog: dict |
         lines.append({
             "sku_id": sku_id,
             "description": by_id[sku_id]["display_name"],
+            "service_code": by_id[sku_id]["service_code"],
             "unit": r["unit"],
             "quantity": qty,
             "list_price": r["list_price"],
             "discount_pct": r["discount_pct"],
             "unit_price": r["effective_price"],
+            "applied_rule": r["applied_rule"],
             "gross_amount": gross_amount,
             "amount": net_amount,
         })

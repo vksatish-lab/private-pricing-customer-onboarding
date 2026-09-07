@@ -288,7 +288,10 @@ def _render_billing_review(config: dict, table: dict) -> None:
     if cross is not None:
         bits.append(f"Cross-service **{cross}%**")
     for rule in config["discount_rules"]:
-        bits.append(f"{rule['description']} **{rule['discount_pct']}%**")
+        codes = ", ".join(
+            leaf.get("value", "") for leaf in rule["match"].get("all", []) if leaf.get("field") == "service_code"
+        )
+        bits.append(f"{rule['description']} → `{codes}` **{rule['discount_pct']}%**")
     st.markdown(("  ·  ".join(bits) or "No discounts.").replace("$", "\\$"))
 
     s = table["summary"]
@@ -301,6 +304,7 @@ def _render_billing_review(config: dict, table: dict) -> None:
         {
             "SKU": ln["sku_id"],
             "Service": ln["service"],
+            "Service code": ln["service_code"],
             "Unit": ln["unit"],
             "List $": ln["list_price"],
             "Disc %": ln["discount_pct"],
@@ -408,7 +412,7 @@ def _tab_billing_preview(rec: dict) -> None:
     rows = [
         {
             "SKU": s["id"],
-            "Service": s["service"],
+            "Service code": s["service_code"],
             "Unit": s["unit"],
             "Net $/unit": rate_by_id[s["id"]]["effective_price"],
             "Quantity": float(seed.get(s["id"], 0.0)),
@@ -420,7 +424,7 @@ def _tab_billing_preview(rec: dict) -> None:
         key=f"usage_editor_{rid}_{month}_{st.session_state[nonce_key]}",
         hide_index=True,
         use_container_width=True,
-        disabled=["SKU", "Service", "Unit", "Net $/unit"],
+        disabled=["SKU", "Service code", "Unit", "Net $/unit"],
         column_config={"Quantity": st.column_config.NumberColumn(min_value=0.0, step=1.0)},
     )
     usage = {r["SKU"]: float(r["Quantity"] or 0) for r in edited if float(r["Quantity"] or 0) > 0}
@@ -451,7 +455,7 @@ def _tab_billing_preview(rec: dict) -> None:
         st.dataframe(
             [
                 {
-                    "SKU": ln["sku_id"], "Description": ln["description"], "Unit": ln["unit"],
+                    "SKU": ln["sku_id"], "Service code": ln.get("service_code", ""),
                     "Qty": ln["quantity"], "List $/u": ln["list_price"], "Disc %": ln["discount_pct"],
                     "Net $/u": ln["unit_price"], "List $": ln["gross_amount"], "Net $": ln["amount"],
                 }
