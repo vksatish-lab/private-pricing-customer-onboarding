@@ -286,7 +286,7 @@ def _render_billing_review(config: dict, table: dict) -> None:
     cross = config.get("cross_service_discount_pct")
     bits: list[str] = []
     if cross is not None:
-        bits.append(f"Cross-service baseline **{cross}%**")
+        bits.append(f"Cross-service **{cross}%**")
     for rule in config["discount_rules"]:
         bits.append(f"{rule['description']} **{rule['discount_pct']}%**")
     st.markdown(("  ·  ".join(bits) or "No discounts.").replace("$", "\\$"))

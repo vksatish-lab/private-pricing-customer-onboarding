@@ -40,7 +40,7 @@ DISCOUNT_MODELS = ["cross_service", "per_service", "both"]
 DISCOUNT_MODEL_LABEL = {
     "cross_service": "Cross-service",
     "per_service": "Per-service",
-    "both": "Both (baseline + per-service)",
+    "both": "Cross-service + per-service",
 }
 TERM_MONTHS = [12, 24, 36]
 RANDOM_NAMES = ["John Doe", "Jane Doe"]

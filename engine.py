@@ -4,7 +4,7 @@ Turns a signed agreement into a `private-pricing-billing-config` JSON, and
 resolves that config against the public catalog into a rate table.
 
 The billing config stores:
-  - a flat `cross_service_discount_pct` (the baseline; null if none)
+  - a flat `cross_service_discount_pct` (applies to every SKU; null if none)
   - `discount_rules`: service-specific discounts, each a `discount_pct` plus a
     `match` expression evaluated against catalog SKUs
 
