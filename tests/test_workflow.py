@@ -147,33 +147,33 @@ class Transitions(unittest.TestCase):
         with self.assertRaises(WorkflowError):
             apply(r, "provision_billing")
 
-    def test_record_invoice(self):
+    def test_record_billing_preview(self):
         r = _valid_agreement_record()
         for act in ("generate_agreement", "send_for_signature", "mark_signed", "provision_billing"):
             r = apply(r, act)
 
-        r = apply(r, "record_invoice", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 100}})
+        r = apply(r, "record_billing_preview", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 100}})
         self.assertEqual(r["status"], "ACTIVE")  # not a state transition
-        self.assertEqual(len(r["invoices"]), 1)
-        self.assertEqual(r["invoices"][0]["billing_period"], "2026-09")
-        self.assertIsNotNone(r["invoices"][0]["issued_at"])
+        self.assertEqual(len(r["billing_previews"]), 1)
+        self.assertEqual(r["billing_previews"][0]["billing_period"], "2026-09")
+        self.assertIsNotNone(r["billing_previews"][0]["generated_at"])
 
         # a second month adds; the same month replaces
-        r = apply(r, "record_invoice", {"month": "2026-10", "usage": {"API-OPUS-5-INPUT": 200}})
-        r = apply(r, "record_invoice", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 150}})
-        self.assertEqual([i["billing_period"] for i in r["invoices"]], ["2026-09", "2026-10"])
-        self.assertEqual(r["invoices"][0]["lines"][0]["quantity"], 150)
+        r = apply(r, "record_billing_preview", {"month": "2026-10", "usage": {"API-OPUS-5-INPUT": 200}})
+        r = apply(r, "record_billing_preview", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 150}})
+        self.assertEqual([p["billing_period"] for p in r["billing_previews"]], ["2026-09", "2026-10"])
+        self.assertEqual(r["billing_previews"][0]["lines"][0]["quantity"], 150)
 
-    def test_record_invoice_guards(self):
+    def test_record_billing_preview_guards(self):
         signed = _valid_agreement_record()
         for act in ("generate_agreement", "send_for_signature", "mark_signed"):
             signed = apply(signed, act)
         with self.assertRaises(WorkflowError):  # not ACTIVE yet
-            apply(signed, "record_invoice", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 1}})
+            apply(signed, "record_billing_preview", {"month": "2026-09", "usage": {"API-OPUS-5-INPUT": 1}})
 
         active = apply(signed, "provision_billing")
         with self.assertRaises(WorkflowError):  # no usage
-            apply(active, "record_invoice", {"month": "2026-09", "usage": {}})
+            apply(active, "record_billing_preview", {"month": "2026-09", "usage": {}})
 
     def test_apply_does_not_mutate_input(self):
         r = _valid_agreement_record()

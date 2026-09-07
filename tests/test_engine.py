@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from catalog import CATALOG  # noqa: E402
 from engine import (  # noqa: E402
     build_billing_config,
-    build_invoice,
+    build_billing_preview,
     match_sku,
     rate_table_to_csv,
     resolve_rate_table,
@@ -156,7 +156,7 @@ class Resolve(unittest.TestCase):
         self.assertTrue(lines[0].startswith("sku_id,service,service_code,unit,list_price"))
 
 
-class Invoice(unittest.TestCase):
+class BillingPreview(unittest.TestCase):
     def _cfg(self):
         return build_billing_config(_signed_record(
             discount_model="both", cross_service_pct=10,
@@ -165,33 +165,34 @@ class Invoice(unittest.TestCase):
 
     def test_line_math_gross_and_net(self):
         cfg = self._cfg()
-        inv = build_invoice(cfg, "2026-09", {
+        p = build_billing_preview(cfg, "2026-09", {
             "API-OPUS-5-INPUT": 100,      # list 5.00, cross 10% -> net 4.50
             "CLAUDE-CODE-USAGE": 50,      # list 6.00, ssd 25%  -> net 4.50
         })
-        self.assertEqual(inv["kind"], "private-pricing-invoice")
-        self.assertEqual(inv["invoice_number"], f"INV-{cfg['account_number']}-2026-09")
-        self.assertIsNone(inv["issued_at"])
-        by_id = {ln["sku_id"]: ln for ln in inv["lines"]}
+        self.assertEqual(p["kind"], "private-pricing-billing-preview")
+        self.assertEqual(p["preview_number"], f"BP-{cfg['account_number']}-2026-09")
+        self.assertIsNone(p["generated_at"])
+        by_id = {ln["sku_id"]: ln for ln in p["lines"]}
         self.assertEqual(by_id["API-OPUS-5-INPUT"]["gross_amount"], 500.0)
         self.assertEqual(by_id["API-OPUS-5-INPUT"]["amount"], 450.0)
         self.assertEqual(by_id["CLAUDE-CODE-USAGE"]["amount"], 225.0)
-        self.assertEqual(inv["gross_subtotal"], 800.0)
-        self.assertEqual(inv["subtotal"], 675.0)
-        self.assertEqual(inv["discount_total"], 125.0)
-        self.assertEqual(inv["total"], inv["subtotal"])
+        self.assertEqual(p["gross_subtotal"], 800.0)
+        self.assertEqual(p["subtotal"], 675.0)
+        self.assertEqual(p["discount_total"], 125.0)
+        self.assertEqual(p["savings_pct"], 15.6)
+        self.assertEqual(p["total"], p["subtotal"])
 
     def test_zero_and_unknown_usage_ignored(self):
-        inv = build_invoice(self._cfg(), "2026-09", {
+        p = build_billing_preview(self._cfg(), "2026-09", {
             "API-OPUS-5-INPUT": 0, "NOT-A-SKU": 999, "API-OPUS-5-OUTPUT": 10,
         })
-        self.assertEqual([ln["sku_id"] for ln in inv["lines"]], ["API-OPUS-5-OUTPUT"])
+        self.assertEqual([ln["sku_id"] for ln in p["lines"]], ["API-OPUS-5-OUTPUT"])
 
-    def test_sample_usage_produces_a_nonempty_invoice(self):
-        inv = build_invoice(self._cfg(), "2026-10", sample_usage())
-        self.assertGreaterEqual(len(inv["lines"]), 3)
-        self.assertGreater(inv["total"], 0)
-        self.assertLess(inv["total"], inv["gross_subtotal"])
+    def test_sample_usage_produces_a_nonempty_preview(self):
+        p = build_billing_preview(self._cfg(), "2026-10", sample_usage())
+        self.assertGreaterEqual(len(p["lines"]), 3)
+        self.assertGreater(p["total"], 0)
+        self.assertLess(p["total"], p["gross_subtotal"])
 
 
 if __name__ == "__main__":

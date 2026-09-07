@@ -192,8 +192,11 @@ def stamp_provisioned(config: dict) -> dict:
     return config
 
 
-# --------------------------------------------------------------- invoicing
-INVOICE_KIND = "private-pricing-invoice"
+# --------------------------------------------------------------- billing preview
+# A billing preview is a non-binding estimate: given a month's (hand-entered)
+# usage, what it costs at this account's negotiated rates vs. list price.
+# Not an invoice -- there is no metering feed and Sales, not finance, runs it.
+PREVIEW_KIND = "private-pricing-billing-preview"
 
 # Plausible one-month usage for the "Load sample usage" button.
 # per_mtok -> millions of tokens ; per_seat_month -> seats ; per_1k_calls -> thousands of calls
@@ -210,12 +213,12 @@ def sample_usage() -> dict:
     return dict(_SAMPLE_USAGE)
 
 
-def build_invoice(config: dict, month: str, usage: dict, catalog: dict | None = None) -> dict:
-    """Config + one month's usage -> an invoice (issued_at left null).
+def build_billing_preview(config: dict, month: str, usage: dict, catalog: dict | None = None) -> dict:
+    """Config + one month's usage -> a billing preview (generated_at left null).
 
-    Simple metered billing: amount = quantity x net unit price. Each line also
-    carries the gross (list) unit price and amount so the invoice shows both.
-    No commitment drawdown / true-up / overage.
+    Simple metered math: amount = quantity x net unit price. Each line also
+    carries the gross (list) unit price and amount so the preview shows the
+    saving. No commitment drawdown / true-up / overage.
     """
     catalog = catalog or CATALOG
     rates = {ln["sku_id"]: ln for ln in resolve_rate_table(config, catalog)["lines"]}
@@ -249,26 +252,28 @@ def build_invoice(config: dict, month: str, usage: dict, catalog: dict | None = 
     gross_subtotal = round(gross_subtotal, 2)
     net_subtotal = round(net_subtotal, 2)
 
+    discount_total = round(gross_subtotal - net_subtotal, 2)
     return {
-        "kind": INVOICE_KIND,
+        "kind": PREVIEW_KIND,
         "version": CONFIG_VERSION,
-        "invoice_number": f"INV-{config['account_number']}-{month}",
+        "preview_number": f"BP-{config['account_number']}-{month}",
         "account_number": config["account_number"],
         "customer": dict(config["customer"]),
         "config_ref": config["onboarding_ref"],
         "billing_period": month,
-        "issued_at": None,
+        "generated_at": None,
         "currency": config["currency"],
         "price_book_date": config["price_book_date"],
         "lines": lines,
-        "gross_subtotal": gross_subtotal,
-        "discount_total": round(gross_subtotal - net_subtotal, 2),
-        "subtotal": net_subtotal,
+        "gross_subtotal": gross_subtotal,          # at list price
+        "discount_total": discount_total,          # what the agreement saves
+        "savings_pct": round(discount_total / gross_subtotal * 100, 1) if gross_subtotal else 0.0,
+        "subtotal": net_subtotal,                  # at negotiated rates
         "total": net_subtotal,
     }
 
 
-def stamp_invoice_issued(invoice: dict) -> dict:
-    invoice = dict(invoice)
-    invoice["issued_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    return invoice
+def stamp_preview_generated(preview: dict) -> dict:
+    preview = dict(preview)
+    preview["generated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return preview

@@ -50,12 +50,14 @@ python -m unittest discover -s tests
   - the per-SKU rate table is **derived on demand**, never stored (list prices can
     change; the config still resolves correctly)
   - exports: billing config JSON + rate table CSV
-- **Invoicing** (on the ACTIVE screen, "Invoicing" tab) — pick a billing month,
-  enter per-SKU usage (editable table, or "Load sample usage"), and generate that
-  month's invoice: `amount = quantity × net unit price`, with each line and the
-  totals showing **gross (list) and net (post-discount)**. One invoice per month
-  (regenerating replaces it). Simple metered billing — no commitment drawdown /
-  true-up / overage. Each invoice downloads as a PDF.
+- **Billing preview** (ACTIVE screen, "Billing preview" tab) — a *non-binding
+  estimate*, not an invoice (usage is hand-entered; Sales, not finance, runs it).
+  Pick a month, enter per-SKU usage (editable table or "Load sample usage"); a
+  live total shows **list price vs your negotiated rate vs the saving** and
+  updates as you type. Generate to save a dated preview (one per month;
+  regenerating replaces it) and download it as a PDF. Simple metered math
+  (`amount = quantity × net unit price`) — no commitment drawdown / true-up /
+  overage.
 - **History** — every transition is logged on the record (audit trail).
 - Persistence in one JSON file; atomic writes.
 
@@ -64,9 +66,9 @@ python -m unittest discover -s tests
 ```
 app.py         Streamlit UI (thin — the wizard glue)
 workflow.py    pure state machine: new_record, validate_agreement, apply(record, action)
-engine.py      billing config builder + match-expression evaluator + rate resolver + invoice builder (pure)
+engine.py      billing config builder + match-expression evaluator + rate resolver + billing-preview builder (pure)
 store.py       JSON persistence (dict of records by id)
-pdf.py         agreement PDF + invoice PDF via fpdf2 (pure functions)
+pdf.py         agreement PDF + billing-preview PDF via fpdf2 (pure functions)
 catalog.py     the public product catalog (5 SKUs, one per service area) + service-code enum
 tests/         unittest for workflow.py and engine.py
 ```

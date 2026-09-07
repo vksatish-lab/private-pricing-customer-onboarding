@@ -84,7 +84,7 @@ def new_record() -> dict:
         "sent_for_signature_at": None,
         "signature": None,            # {"signer_name": str, "signed_at": iso}
         "billing_config": None,       # private-pricing-billing-config JSON, set at provisioning
-        "invoices": [],               # one private-pricing-invoice per billing month
+        "billing_previews": [],       # one private-pricing-billing-preview per billing month
         "history": [{"at": ts, "action": "create", "from": None, "to": "DRAFT"}],
     }
 
@@ -173,10 +173,10 @@ def apply(record: dict, action: str, payload: dict | None = None) -> dict:
         rec["updated_at"] = _now()
         return rec
 
-    # --- recording a monthly invoice (not a state transition) ---------------
-    if action == "record_invoice":
+    # --- recording a monthly billing preview (not a state transition) -------
+    if action == "record_billing_preview":
         if status != "ACTIVE":
-            raise WorkflowError("Invoicing is only available once billing is active.")
+            raise WorkflowError("Billing previews are only available once billing is active.")
         month = payload.get("month")
         usage = payload.get("usage") or {}
         if not month:
@@ -184,16 +184,16 @@ def apply(record: dict, action: str, payload: dict | None = None) -> dict:
         if not any(float(q or 0) > 0 for q in usage.values()):
             raise WorkflowError("Enter usage for at least one SKU.")
 
-        from engine import build_invoice, stamp_invoice_issued  # lazy: avoids import cycle
+        from engine import build_billing_preview, stamp_preview_generated  # lazy: avoids cycle
 
-        invoice = stamp_invoice_issued(build_invoice(rec["billing_config"], month, usage))
-        rec.setdefault("invoices", [])
-        rec["invoices"] = [i for i in rec["invoices"] if i["billing_period"] != month]
-        rec["invoices"].append(invoice)
-        rec["invoices"].sort(key=lambda i: i["billing_period"])
+        preview = stamp_preview_generated(build_billing_preview(rec["billing_config"], month, usage))
+        rec.setdefault("billing_previews", [])
+        rec["billing_previews"] = [p for p in rec["billing_previews"] if p["billing_period"] != month]
+        rec["billing_previews"].append(preview)
+        rec["billing_previews"].sort(key=lambda p: p["billing_period"])
         rec["updated_at"] = _now()
         rec["history"].append(
-            {"at": _now(), "action": "record_invoice", "from": status, "to": status, "note": month}
+            {"at": _now(), "action": "record_billing_preview", "from": status, "to": status, "note": month}
         )
         return rec
 

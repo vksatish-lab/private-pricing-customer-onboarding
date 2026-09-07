@@ -361,13 +361,27 @@ def _tab_rate_table(rec: dict) -> None:
         st.json(cfg)
 
 
-def _tab_invoicing(rec: dict) -> None:
-    from pdf import build_invoice_pdf
+def _savings_line(p: dict, prefix: str = "") -> str:
+    cur = p["currency"]
+    return (
+        f"{prefix}list price **{cur} {p['gross_subtotal']:,.2f}**  ·  "
+        f"your rate **{cur} {p['subtotal']:,.2f}**  ·  "
+        f"saves **{cur} {p['discount_total']:,.2f} ({p.get('savings_pct', 0):g}%)**"
+    ).replace("$", "\\$")
+
+
+def _tab_billing_preview(rec: dict) -> None:
+    from pdf import build_billing_preview_pdf
 
     rid = rec["id"]
     cfg = rec["billing_config"]
     rate_by_id = {ln["sku_id"]: ln for ln in engine.resolve_rate_table(cfg)["lines"]}
-    invoices_by_month = {i["billing_period"]: i for i in rec.get("invoices", [])}
+    previews_by_month = {p["billing_period"]: p for p in rec.get("billing_previews", [])}
+
+    st.caption(
+        "A non-binding estimate: enter a month's usage and see what it costs at this "
+        "account's negotiated rates vs. list price."
+    )
 
     month = st.text_input(
         "Billing month", value=date.today().strftime("%Y-%m"), key=f"month_{rid}", help="YYYY-MM",
@@ -387,8 +401,8 @@ def _tab_invoicing(rec: dict) -> None:
         st.rerun()
 
     seed = st.session_state.get(seed_key)
-    if seed is None and month in invoices_by_month:
-        seed = {ln["sku_id"]: ln["quantity"] for ln in invoices_by_month[month]["lines"]}
+    if seed is None and month in previews_by_month:
+        seed = {ln["sku_id"]: ln["quantity"] for ln in previews_by_month[month]["lines"]}
     seed = seed or {}
 
     rows = [
@@ -411,67 +425,66 @@ def _tab_invoicing(rec: dict) -> None:
     )
     usage = {r["SKU"]: float(r["Quantity"] or 0) for r in edited if float(r["Quantity"] or 0) > 0}
 
-    exists = month in invoices_by_month
-    label = f"{'Regenerate' if exists else 'Generate'} invoice for {month}"
-    if st.button(label, type="primary", disabled=not (valid_month and usage), key=f"gen_inv_{rid}"):
-        store.upsert(wf.apply(rec, "record_invoice", {"month": month, "usage": usage}))
+    # live running total as quantities change
+    if usage:
+        running = engine.build_billing_preview(cfg, month, usage)
+        st.markdown(f"**{month}** — " + _savings_line(running))
+
+    exists = month in previews_by_month
+    label = f"{'Regenerate' if exists else 'Generate'} billing preview for {month}"
+    if st.button(label, type="primary", disabled=not (valid_month and usage), key=f"gen_bp_{rid}"):
+        store.upsert(wf.apply(rec, "record_billing_preview", {"month": month, "usage": usage}))
         st.session_state.pop(seed_key, None)
         st.session_state[nonce_key] += 1
-        st.toast(f"Invoice generated for {month}")
+        st.toast(f"Billing preview generated for {month}")
         st.rerun()
 
     st.divider()
-    invoices = rec.get("invoices", [])
-    if not invoices:
-        st.caption("No invoices yet — enter usage above and generate one.")
+    previews = rec.get("billing_previews", [])
+    if not previews:
+        st.caption("No billing previews yet — enter usage above and generate one.")
         return
 
-    def _invoice_block(inv: dict) -> None:
-        st.caption(
-            f"Issued {inv.get('issued_at') or '-'} (UTC) · {len(inv['lines'])} line(s)"
-        )
+    def _preview_block(p: dict) -> None:
+        st.markdown("#### " + _savings_line(p))
+        st.caption(f"Generated {p.get('generated_at') or '-'} (UTC) · {len(p['lines'])} line(s)")
         st.dataframe(
             [
                 {
                     "SKU": ln["sku_id"], "Description": ln["description"], "Unit": ln["unit"],
                     "Qty": ln["quantity"], "List $/u": ln["list_price"], "Disc %": ln["discount_pct"],
-                    "Net $/u": ln["unit_price"], "Gross $": ln["gross_amount"], "Amount $": ln["amount"],
+                    "Net $/u": ln["unit_price"], "List $": ln["gross_amount"], "Net $": ln["amount"],
                 }
-                for ln in inv["lines"]
+                for ln in p["lines"]
             ],
             hide_index=True, use_container_width=True,
         )
-        st.markdown(
-            f"Gross **{inv['currency']} {inv['gross_subtotal']:,.2f}**  ·  "
-            f"discount **-{inv['discount_total']:,.2f}**  ·  "
-            f"net total **{inv['currency']} {inv['total']:,.2f}**".replace("$", "\\$")
-        )
         try:
-            pdf_bytes = build_invoice_pdf(inv)
+            pdf_bytes = build_billing_preview_pdf(p)
             st.download_button(
-                "⬇  Download invoice PDF",
+                "⬇  Download billing preview (PDF)",
                 data=pdf_bytes,
-                file_name=f"{inv['invoice_number']}.pdf",
+                file_name=f"{p['preview_number']}.pdf",
                 mime="application/pdf",
                 type="primary",
-                key=f"inv_pdf_{rid}_{inv['billing_period']}",
+                key=f"bp_pdf_{rid}_{p['billing_period']}",
             )
         except Exception as exc:  # noqa: BLE001 -- surface the reason instead of a blank
-            st.error(f"Could not build the invoice PDF: {exc}")
+            st.error(f"Could not build the billing preview PDF: {exc}")
 
-    newest = invoices[-1]
-    st.markdown(f"### Latest invoice — {newest['billing_period']}  ·  {newest['invoice_number']}")
-    _invoice_block(newest)
+    newest = previews[-1]
+    st.markdown(f"### Latest billing preview — {newest['billing_period']}  ·  {newest['preview_number']}")
+    _preview_block(newest)
 
-    earlier = list(reversed(invoices[:-1]))
+    earlier = list(reversed(previews[:-1]))
     if earlier:
-        st.markdown("**Earlier invoices**")
-        for inv in earlier:
+        st.markdown("**Earlier previews**")
+        for p in earlier:
             with st.expander(
-                f"{inv['billing_period']}  ·  {inv['invoice_number']}  ·  "
-                f"{inv['currency']} {inv['total']:,.2f} net"
+                f"{p['billing_period']}  ·  {p['preview_number']}  ·  "
+                f"{p['currency']} {p['total']:,.2f} at your rates"
             ):
-                _invoice_block(inv)
+                _preview_block(p)
 
 
 def screen_active(rec: dict) -> None:
@@ -485,11 +498,11 @@ def screen_active(rec: dict) -> None:
         f"{cfg['currency']} · price book {cfg['price_book_date']}"
     )
 
-    tab_rates, tab_inv = st.tabs(["Rate table", "Invoicing"])
+    tab_rates, tab_preview = st.tabs(["Rate table", "Billing preview"])
     with tab_rates:
         _tab_rate_table(rec)
-    with tab_inv:
-        _tab_invoicing(rec)
+    with tab_preview:
+        _tab_billing_preview(rec)
 
 
 SCREENS = {
