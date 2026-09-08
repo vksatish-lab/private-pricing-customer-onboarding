@@ -172,12 +172,50 @@ Every transition appends `{ at, action, from, to }` to `history`. An
 }
 ```
 
-### 8.1 Match expression grammar
+### 8.1 Match expressions
 
-- Leaf: `{ "field": F, "op": OP, "value": V }`. `F` is one of `service_code`, `id`,
-  `unit`, `price_source`. `OP` is `eq` or `in`. For `in`, `V` is a list.
+A discount rule does not carry a list of SKU ids. It carries a `match`
+expression — a predicate over a SKU's attributes. To apply a rule, the resolver
+evaluates its `match` against every SKU in the catalog and keeps the SKUs for
+which it returns true. Those SKUs get the rule's `discount_pct`. A SKU added to
+the catalog later is covered by any rule whose `match` it satisfies, with no
+change to the configuration.
+
+Grammar:
+
+- Leaf: `{ "field": F, "op": OP, "value": V }`. `F` is one of `service_code`,
+  `id`, `unit`, `price_source`. `OP` is `eq` or `in`. For `in`, `V` is a list.
 - Combinator: `{ "all": [ expr, ... ] }` (AND) or `{ "any": [ expr, ... ] }` (OR).
 - An unknown field or op is an error.
+
+Example. This rule:
+
+```json
+{
+  "id": "ssd-claude-api",
+  "discount_pct": 20,
+  "match": { "all": [ { "field": "service_code", "op": "eq", "value": "CLAUDE_API" } ] }
+}
+```
+
+evaluated against the catalog in section 9:
+
+| SKU | `service_code` | `match` result | Discount applied |
+|---|---|---|---|
+| `API-OPUS-5-INPUT` | `CLAUDE_API` | true | 20% |
+| `API-OPUS-5-OUTPUT` | `CLAUDE_API` | true | 20% |
+| `CLAUDE-CODE-USAGE` | `CLAUDE_CODE` | false | — |
+| `CLAUDE-ENTERPRISE-SEAT` | `CLAUDE_FOR_WORK` | false | — |
+| `TOOL-WEB-SEARCH` | `SERVER_TOOLS` | false | — |
+
+The rule filters the catalog to the two Claude API SKUs; the 20% applies to
+those. The other three fall through to the cross-service discount, or to list
+price if there is none (section 8.2).
+
+A combinator narrows or widens the filter. `{ "any": [ { "field":
+"service_code", "op": "eq", "value": "CLAUDE_CODE" }, { "field": "unit", "op":
+"eq", "value": "per_seat_month" } ] }` matches `CLAUDE-CODE-USAGE` and
+`CLAUDE-ENTERPRISE-SEAT`.
 
 ### 8.2 Resolution
 
