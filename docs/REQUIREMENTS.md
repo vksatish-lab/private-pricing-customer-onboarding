@@ -53,10 +53,10 @@ trail, and no server to run.
 ### 5.1 In scope
 
 1. An onboarding tracker listing every onboarding with its status.
-2. Agreement authoring: a form with the fields in section 8.
+2. Agreement authoring: a form for the deal terms.
 3. Agreement generation: a one-page PDF from the form.
 4. A mock signature action that records a signer name and timestamp.
-5. Billing configuration: compile the agreement's discounts into the JSON in section 10.
+5. Billing configuration: compile the agreement's discounts into the JSON in section 8.
 6. Rate table: resolve the billing configuration against the catalog.
 7. Billing preview: one per month, from hand-entered usage, with a PDF.
 8. A state machine that governs every transition, with guards.
@@ -81,7 +81,7 @@ trail, and no server to run.
 
 1. A metering application exists and measures each customer's usage per SKU per
    billing period. This tool does not meter usage. The billing configuration it
-   produces (section 10) is the input a downstream billing process uses, together
+   produces (section 8) is the input a downstream billing process uses, together
    with metered usage, to compute the customer's bill: for each SKU,
    `charge = metered_quantity × list_price × (1 − discount_pct / 100)`, with
    `discount_pct` resolved from the configuration.
@@ -100,7 +100,7 @@ Statuses: `DRAFT`, `AGREEMENT_READY`, `PENDING_SIGNATURE`, `SIGNED`, `ACTIVE`.
 
 | Action | From | To | Guard |
 |---|---|---|---|
-| `generate_agreement` | `DRAFT` | `AGREEMENT_READY` | Agreement passes validation (section 9). |
+| `generate_agreement` | `DRAFT` | `AGREEMENT_READY` | Agreement passes validation. |
 | `send_for_signature` | `AGREEMENT_READY` | `PENDING_SIGNATURE` | A document was generated. |
 | `mark_signed` | `PENDING_SIGNATURE` | `SIGNED` | — |
 | `provision_billing` | `SIGNED` | `ACTIVE` | Account number is present. |
@@ -116,42 +116,7 @@ Every transition appends `{ at, action, from, to }` to `history`. An
 `update_agreement` from `AGREEMENT_READY` also appends `{ action: "revise" }`. A
 `record_billing_preview` appends `note` set to the billing month.
 
-## 8. Agreement fields
-
-The Sales user enters:
-
-| Field | Rule |
-|---|---|
-| Customer name | Required. Pre-filled with `John Doe` or `Jane Doe` at record creation. This is the signer. |
-| Company name | Required. |
-| Account number | Required. The billing account the discount applies to. |
-| Start date | Required. Defaults to today. |
-| Term length | `12`, `24`, or `36` months. End date = start + term − 1 day. |
-| Annual committed spend (USD) | Required. Greater than 0. |
-| Discount model | `cross_service`, `per_service`, or `both`. |
-| Cross-service discount % | Shown and required when the model is `cross_service` or `both`. 0 to 100. |
-| Per-service rows | Shown when the model is `per_service` or `both`. Each row is a service (from the catalog) and a percentage 0 to 100. At least one row. |
-
-Set by the system, not shown as inputs: `currency = USD`, `billing = monthly in
-arrears`, record id, status, timestamps, history.
-
-## 9. Agreement validation
-
-`generate_agreement` fails, and lists every problem, if any of these hold:
-
-1. Customer name is empty.
-2. Company name is empty.
-3. Account number is empty.
-4. Annual committed spend is not greater than 0.
-5. Term length is not 12, 24, or 36.
-6. Discount model is not one of the three values.
-7. Model needs a cross-service percentage and it is missing or outside 0–100.
-8. Model needs per-service rows and there are none.
-9. A per-service row names a service that is not in the catalog.
-10. A service appears in more than one per-service row.
-11. A per-service percentage is missing or outside 0–100.
-
-## 10. Billing configuration
+## 8. Billing configuration
 
 `provision_billing` writes this JSON to `record.billing_config`:
 
@@ -182,14 +147,14 @@ arrears`, record id, status, timestamps, history.
 }
 ```
 
-### 10.1 Match expression grammar
+### 8.1 Match expression grammar
 
 - Leaf: `{ "field": F, "op": OP, "value": V }`. `F` is one of `service_code`, `id`,
   `unit`, `price_source`. `OP` is `eq` or `in`. For `in`, `V` is a list.
 - Combinator: `{ "all": [ expr, ... ] }` (AND) or `{ "any": [ expr, ... ] }` (OR).
 - An unknown field or op is an error.
 
-### 10.2 Resolution
+### 8.2 Resolution
 
 For each SKU in the catalog:
 
@@ -206,58 +171,7 @@ The rate table is `{ lines: [...], summary: { skus_total, skus_discounted,
 skus_at_list, skus_at_list_ids } }`. It is computed on request. It is not written
 to the record or the store.
 
-## 11. Billing preview
-
-`record_billing_preview` takes a billing month (`YYYY-MM`) and a map of SKU id to
-quantity. It appends this JSON to `record.billing_previews`:
-
-```jsonc
-{
-  "kind": "private-pricing-billing-preview",
-  "version": "1.0",
-  "preview_number": "BP-GLBX-004417-2026-09",
-  "account_number": "GLBX-004417",
-  "customer": { "company_name": "...", "signer_name": "..." },
-  "config_ref": "ONB-XXXXXXXX",
-  "billing_period": "2026-09",
-  "generated_at": "2026-09-07T17:42:41+00:00",
-  "currency": "USD",
-  "price_book_date": "2026-08-01",
-  "lines": [
-    {
-      "sku_id": "API-OPUS-5-INPUT",
-      "description": "Claude Opus 5 - input tokens",
-      "service_code": "CLAUDE_API",
-      "unit": "per_mtok",
-      "quantity": 120.0,
-      "list_price": 5.0,
-      "discount_pct": 10,
-      "unit_price": 4.5,
-      "applied_rule": "cross_service",
-      "gross_amount": 600.0,
-      "amount": 540.0
-    }
-  ],
-  "gross_subtotal": 5850.0,     // sum of gross_amount, at list price
-  "discount_total": 783.0,      // gross_subtotal − subtotal
-  "savings_pct": 13.4,          // discount_total / gross_subtotal × 100, 1 decimal
-  "subtotal": 5067.0,           // sum of amount, at negotiated rates
-  "total": 5067.0
-}
-```
-
-Rules:
-
-1. Only SKUs with quantity greater than 0 produce a line. Unknown SKU ids are
-   dropped.
-2. `gross_amount = round(quantity × list_price, 2)`. `amount = round(quantity ×
-   effective_price, 2)`.
-3. One preview per billing month. Generating a preview for a month that already
-   has one replaces it.
-4. The preview is a cost estimate. It applies no commitment drawdown, true-up, or
-   overage.
-
-## 12. Catalog
+## 9. Catalog
 
 Five SKUs, one per service area:
 
@@ -272,36 +186,9 @@ Five SKUs, one per service area:
 `price_book_date = 2026-08-01`. `CLAUDE-CODE-USAGE`, `CLAUDE-ENTERPRISE-SEAT`, and
 `TOOL-WEB-SEARCH` list prices are illustrative; the Opus prices are public.
 
-## 13. User interface
+## 10. Documents
 
-1. **Tracker** (sidebar): a "New onboarding" button and a row per onboarding
-   showing company name, status, and annual commitment. Selecting a row opens it.
-2. **Progress tracker** (top of each onboarding): five steps — Draft, Agreement,
-   Signature, Signed, Billing. Completed steps are filled; the current step is
-   marked.
-3. **Draft screen**: the agreement form (section 8). "Save draft" persists.
-   "Generate agreement" runs validation and advances on success; on failure it
-   lists every problem.
-4. **Agreement-ready screen**: the agreement summary, a PDF download, "Send for
-   signature", and an editor that reverts to Draft.
-5. **Pending-signature screen**: the sent-to line, a PDF download, and a
-   "Mark as signed" button.
-6. **Signed screen**: the signed-by line, a PDF download, and a
-   "Billing configuration" section — the rate table, a per-rule line showing each
-   rule's target service code and percentage, and "Provision billing account".
-7. **Active screen**: two tabs.
-   - Rate table: the resolved table (SKU, service, service code, unit, list price,
-     discount, effective price, applied rule), the billing-config JSON, and
-     downloads for the JSON and the CSV.
-   - Billing preview: a billing-month field, "Load sample usage", an editable
-     usage table (SKU, service code, unit, net unit price read-only, quantity), a
-     live "list price vs your rate vs saving" total, "Generate billing preview",
-     and each generated preview with its line detail and a PDF download.
-8. **History** (expander on every screen): the transition log.
-
-## 14. Documents
-
-### 14.1 Agreement PDF
+### 10.1 Agreement PDF
 
 One page. Sections: Parties (both names and a representative line each), Pricing
 Schedule (a two-column key/value table: account number, effective date, contract
@@ -311,7 +198,7 @@ Conditions (eight numbered boilerplate clauses), Signatures. A footer carries th
 record id, status, and generation timestamp; a `DRAFT` record is marked
 "DRAFT — NOT FOR EXECUTION".
 
-### 14.2 Billing preview PDF
+### 10.2 Billing preview PDF
 
 One page. Title "Billing Preview" with the line "Non-binding estimate from entered
 usage. Not an invoice." Metadata: reference, account, customer, billing period,
@@ -319,7 +206,7 @@ generated timestamp, currency, price book date. A line-item table: item, quantit
 list unit price, discount, net unit price, amount. Totals: "At list price",
 "Agreement saving (N%)", "At your negotiated rates".
 
-## 15. Non-functional requirements
+## 11. Non-functional requirements
 
 1. **Stack**: Python 3.11 or later, Streamlit, `fpdf2`. No other runtime
    dependency.
@@ -335,25 +222,3 @@ list unit price, discount, net unit price, amount. Totals: "At list price",
 6. **Timestamps**: ISO 8601, UTC, second precision.
 7. **Run**: `pip install -r requirements.txt` then `streamlit run app.py`.
 8. **Deploy**: the repository runs on Streamlit Community Cloud with no change.
-
-## 16. Files
-
-```
-app.py         Streamlit UI. Screens, tracker, tabs.
-workflow.py    State machine: new_record, validate_agreement, apply.
-engine.py      build_billing_config, match_sku, resolve_rate_table, rate_table_to_csv,
-               build_billing_preview.
-catalog.py     The public catalog and service-code enum.
-store.py       JSON persistence.
-pdf.py         build_agreement_pdf, build_billing_preview_pdf.
-tests/         unittest for workflow.py and engine.py.
-```
-
-## 17. Planned extensions
-
-1. Per-SKU override rules in the billing configuration.
-2. Volume and ramp tiers evaluated at rating time.
-3. Commitment drawdown and true-up.
-4. Real electronic signature.
-5. A live usage-metering feed in place of typed usage.
-6. Multiple users and roles.
