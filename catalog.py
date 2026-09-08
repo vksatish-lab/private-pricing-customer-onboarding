@@ -3,8 +3,8 @@
 One shared catalog for everyone. Private-pricing customers get a discount *policy*
 applied against this catalog at billing time -- we never fork it per customer.
 
-Step 1 (authoring) only needs SERVICE_NAMES for the per-service discount dropdown.
-The SKU-level detail is here for the billing-setup step (not built yet).
+Authoring uses SERVICE_NAMES for the per-service discount dropdown; the SKU-level
+detail (with service_code) is what the billing engine resolves discounts against.
 """
 from __future__ import annotations
 

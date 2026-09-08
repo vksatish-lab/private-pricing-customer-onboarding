@@ -24,13 +24,11 @@ The work is split across separate tools: Sales in a document editor, billing
 operations in the billing system, the accounts team in a spreadsheet. They fall
 out of sync.
 
-This tool keeps the onboarding as one record. From it:
-
-- the agreement PDF is rendered — parties, a pricing-schedule table, one row per
-  discount rule;
-- the billing configuration is compiled — the same discount parameters, in the
-  form the billing system consumes;
-- the workflow status is tracked — draft, sent, signed, provisioned.
+This tool keeps the onboarding in one record. The record's fields fill the
+agreement PDF — parties, a pricing-schedule table, a row per discount rule. Its
+discount parameters compile into the billing configuration the downstream billing
+system reads. Its status field is the workflow position: draft, sent, signed,
+provisioned.
 
 What a reviewer signs and what the billing system runs come from the same
 parameters, so they stay in sync. There is no free-hand drafting and no step that
@@ -61,7 +59,7 @@ Today the UI only creates `service_code`-level rules. The engine evaluates
 arbitrary attribute predicates (`unit`, `id`, `price_source`, `all`/`any`);
 `test_engine.py` exercises those.
 
-## 3. The workflow is a guarded state machine
+## 3. The guarded state machine
 
 `apply(record, action, payload)` is the only function that changes a record. It
 copies the record, checks the transition is legal, runs the guard, applies the
@@ -76,26 +74,25 @@ standard library only).
    multi-step state and reruns on its own. Cost: a `pip install` and working
    within Streamlit's rerun model. Rejected React + FastAPI as more setup than
    the prototype needs.
-2. **Discounts are percentages, not absolute rates.** A percentage composes with
-   an evolving catalog; an absolute rate attached to an attribute set breaks the
-   moment a matching SKU has a different list price. Absolute overrides are a
-   listed extension.
-3. **Cross-service discount is a flat field, not a rule.** It applies to
-   everything, so its `match` would be vacuously true — noise. Only targeted
+2. **Discounts are percentages.** A percentage composes with an evolving catalog.
+   An absolute rate attached to an attribute set breaks the moment a matching SKU
+   has a different list price. Absolute overrides are a listed extension.
+3. **Cross-service discount is a flat field.** It applies to every SKU, so a
+   `match` expression for it would always be true — noise. Only the targeted
    discounts carry expressions.
-4. **Precedence by rule type, not a priority number.** Service-specific beats
-   cross-service beats list. One less field to get wrong. Overlapping attribute
-   targets would need an explicit priority; deferred.
+4. **Precedence by rule type.** Service-specific beats cross-service beats list;
+   there is no priority field to set. Overlapping attribute targets would need
+   one; deferred.
 5. **The rate table is derived, never persisted.** Keeps the stored config small
    and correct across catalog and price changes. The billing preview is likewise
    recomputed from stored usage plus current rules.
 6. **Mock signature, hand-entered usage.** Real e-signature and a metering feed
-   are integrations, not the idea. The metering dependency is stated explicitly
-   in the requirements (assumptions, section 6).
+   are integrations the prototype stands in for. The metering dependency is
+   stated in the requirements (assumptions, section 6).
 7. **One "Sales" role.** In a real deployment the steps span Sales, billing
    operations, and the customer accounts team. The state machine already
-   partitions the work by transition, so roles are a permissions layer, not a
-   redesign.
+   partitions the work by transition, so splitting the role later is a
+   permissions layer over the same transitions.
 8. **One JSON file for persistence.** A database adds setup for no demo value at
    this size. Writes are atomic (temp file, rename).
 

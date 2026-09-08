@@ -14,7 +14,7 @@ is in the process.
 This tool is one workflow that carries a customer from a draft agreement to active
 billing. Every step is a guarded state transition with an audit trail. The
 negotiated discounts are stored as rules that resolve against one shared product
-catalog, not as a per-customer price list that has to be maintained by hand.
+catalog, rather than a per-customer price list maintained by hand.
 
 ## 2. Overview
 
@@ -57,7 +57,7 @@ In a real deployment these steps span three teams: Sales authors the agreement,
 billing operations provisions and runs it, and the customer accounts team owns
 the account record. The prototype collapses them into one "Sales" role to keep it
 single-user. The state machine already partitions the work by transition, so
-splitting the role later is a permissions change, not a redesign.
+splitting the role later is a permissions change over the same transitions.
 
 ## 4. Vocabulary
 

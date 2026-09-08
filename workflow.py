@@ -5,8 +5,7 @@ An onboarding is a *record* that carries its state as it moves through the steps
 transition is legal, runs the guard, mutates a copy, appends to the history log,
 and returns the new record. No I/O, no Streamlit. Persistence lives in store.py.
 
-States (this build):  DRAFT -> AGREEMENT_READY -> PENDING_SIGNATURE -> SIGNED
-Billing setup (-> ACTIVE) comes later.
+States:  DRAFT -> AGREEMENT_READY -> PENDING_SIGNATURE -> SIGNED -> ACTIVE
 """
 from __future__ import annotations
 
