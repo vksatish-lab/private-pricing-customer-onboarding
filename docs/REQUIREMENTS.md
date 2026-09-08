@@ -186,27 +186,7 @@ Five SKUs, one per service area:
 `price_book_date = 2026-08-01`. `CLAUDE-CODE-USAGE`, `CLAUDE-ENTERPRISE-SEAT`, and
 `TOOL-WEB-SEARCH` list prices are illustrative; the Opus prices are public.
 
-## 10. Documents
-
-### 10.1 Agreement PDF
-
-One page. Sections: Parties (both names and a representative line each), Pricing
-Schedule (a two-column key/value table: account number, effective date, contract
-term, end date, currency, billing, annual committed spend, discount model,
-cross-service discount, one row per service-specific discount), Terms and
-Conditions (eight numbered boilerplate clauses), Signatures. A footer carries the
-record id, status, and generation timestamp; a `DRAFT` record is marked
-"DRAFT — NOT FOR EXECUTION".
-
-### 10.2 Billing preview PDF
-
-One page. Title "Billing Preview" with the line "Non-binding estimate from entered
-usage. Not an invoice." Metadata: reference, account, customer, billing period,
-generated timestamp, currency, price book date. A line-item table: item, quantity,
-list unit price, discount, net unit price, amount. Totals: "At list price",
-"Agreement saving (N%)", "At your negotiated rates".
-
-## 11. Non-functional requirements
+## 10. Non-functional requirements
 
 1. **Stack**: Python 3.11 or later, Streamlit, `fpdf2`. No other runtime
    dependency.
