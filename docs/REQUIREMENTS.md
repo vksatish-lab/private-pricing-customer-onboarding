@@ -28,6 +28,19 @@ Assignment theme: **Systems & Reliability** — a workflow tool with an explicit
 state machine, guards on every transition, deterministic pure logic, an audit
 trail, and no server to run.
 
+```mermaid
+flowchart LR
+    sales([Sales user]) --> app["app.py — Streamlit UI"]
+    app --> wf["workflow.apply — state machine + guards"]
+    wf --> store[("onboardings.json")]
+    app --> engine["engine — build config · resolve rate table · build preview"]
+    engine --> catalog["catalog.py — public price book"]
+    app --> pdf["pdf.py — agreement + preview PDFs"]
+    engine -. "billing configuration JSON" .-> billing["Downstream billing process (out of scope)"]
+    meter["Metering application (assumed)"] -. "metered usage" .-> billing
+    billing --> bill([Customer bill])
+```
+
 ## 3. Users
 
 | User | Uses the tool to |
@@ -97,6 +110,18 @@ trail, and no server to run.
 ## 7. State machine
 
 Statuses: `DRAFT`, `AGREEMENT_READY`, `PENDING_SIGNATURE`, `SIGNED`, `ACTIVE`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: new_record
+    DRAFT --> AGREEMENT_READY: generate_agreement
+    AGREEMENT_READY --> PENDING_SIGNATURE: send_for_signature
+    PENDING_SIGNATURE --> SIGNED: mark_signed
+    SIGNED --> ACTIVE: provision_billing
+    DRAFT --> DRAFT: update_agreement
+    AGREEMENT_READY --> DRAFT: update_agreement (discards document)
+    ACTIVE --> ACTIVE: record_billing_preview
+```
 
 | Action | From | To | Guard |
 |---|---|---|---|
