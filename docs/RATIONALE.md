@@ -2,42 +2,32 @@
 
 ## Theme
 
-**Systems & Reliability.** The hard part of onboarding a committed-spend customer
-is integration: the work is split across fragmented systems and teams, and the
-errors and delays live in the gaps between them. The fix is one correct process
-over one shared record. The theme lists "a developer tool that solves a real
-workflow pain point"; that is what this is. The systems content is an explicit
-state machine with a guard on every transition, a single pure mutation path, an
-append-only history, and a billing configuration that *resolves* against one
-shared catalog instead of *materialising* a price list per customer.
+**Systems & Reliability.** Onboarding a committed-spend customer is spread across
+several systems and teams. This tool runs it as one process over one record: a
+state machine with a guard on every transition, a single mutation path, a history
+log, and a billing configuration that resolves against one shared catalog rather
+than a per-customer price list. It fits the theme's "developer tool that solves a
+real workflow pain point."
 
-This is not the failure-handling / concurrency / stress reading of the theme. It
-is the workflow-correctness reading.
+It is not the failure-handling / concurrency / stress reading of the theme.
 
 ## The problem
 
 Large customers sign committed-spend contracts: a dollar commitment per year for
-negotiated discounts. These customers are large, so a small number of them
-account for the majority of revenue.
+negotiated discounts. A few of these customers can be a large share of revenue,
+so the setup is worth getting right.
 
-Setting one up to bill correctly is a hand-off across teams, done ad hoc in
-spreadsheets and email. Steps get skipped. Discounts get entered against the
-wrong products. The discount definition drifts from the products it covers.
-Nothing shows where a given customer is in the process.
-
-Onboarding these accounts accurately and on schedule is part of their product
-experience. A billing error hits a top account. A delay blocks their launch.
+Today it is a hand-off across teams, done in spreadsheets and email. Terms get
+keyed in wrong. The discount stops matching the products it was meant for. There
+is no single view of where a customer is in the process.
 
 ## 1. Integrated onboarding: one record, not three systems
 
-Today the work is split across teams and tools that evolve on their own. Sales
-drafts the contract in a document editor. Billing operations reads that document
-and re-keys the terms into the billing system. The accounts team tracks status in
-a spreadsheet. Three teams, three tools, no shared object — so they drift, and
-the gaps between them are where errors and delays live.
+The work is split across separate tools: Sales in a document editor, billing
+operations in the billing system, the accounts team in a spreadsheet. They fall
+out of sync.
 
-This tool makes the onboarding a **single structured record**. From that one
-record:
+This tool keeps the onboarding as one record. From it:
 
 - the agreement PDF is rendered — parties, a pricing-schedule table, one row per
   discount rule;
@@ -45,18 +35,15 @@ record:
   form the billing system consumes;
 - the workflow status is tracked — draft, sent, signed, provisioned.
 
-What a reviewer signs and what the billing system runs come from the same object.
-There is no hand-drafting step that varies by author, and no PDF-extraction step
-to build and get wrong. The document and the configuration cannot disagree. Every
-team reads the same record and its history.
+What a reviewer signs and what the billing system runs come from the same
+parameters, so they stay in sync. There is no free-hand drafting and no step that
+parses terms back out of a PDF. Every team reads the same record and its history.
 
 ## 2. Attribute-based discounting
 
-The obvious way to give a customer negotiated pricing is a **private price list**:
-clone the SKUs, set each one's rate. Many billing systems do exactly this, and a
-reviewer might expect it. It does not scale. N customers times M products. The
-same product duplicated under many ids. Every list-price change re-applied to
-every private copy.
+One way to give a customer negotiated pricing is a private price list: clone the
+SKUs, set each one's rate. It scales poorly — a copy of every priced product per
+customer, and every list-price change re-applied to every copy.
 
 Instead, a discount is a **rule whose `match` is a predicate over product
 attributes** (`service_code`, `unit`, `id`, `price_source`). At provisioning the
@@ -67,29 +54,31 @@ catalog) and never stored.
 Consequences:
 
 - One rule covers a whole product family — every Claude API token line, cache
-  line, batch line — and every product added to that family later, with no change
+  line, batch line — and any product added to that family later, with no change
   to the configuration.
-- The stored configuration is a handful of lines whatever the catalog size, so it
-  cannot drift as the product set grows.
-- A list-price change propagates to every customer automatically, because no
-  customer holds a copy of the price.
+- The stored configuration stays a handful of lines regardless of catalog size.
+- A list-price change reaches every customer, because no customer holds a copy of
+  the price.
+
+Today the UI only creates `service_code`-level rules. The engine evaluates
+arbitrary attribute predicates (`unit`, `id`, `price_source`, `all`/`any`);
+`test_engine.py` exercises those.
 
 ## 3. The workflow is a guarded state machine
 
 `apply(record, action, payload)` is the only function that changes a record. It
 copies the record, checks the transition is legal, runs the guard, applies the
 change, appends to `history`, returns the new record. It does no I/O. The UI is
-derived entirely from `status`. The result: the process is auditable, and the
-logic is tested without the UI (33 `unittest` cases, no third-party test
-dependency).
+derived from `status`. The logic is tested without the UI (34 `unittest` cases,
+standard library only).
 
 ## Key decisions and tradeoffs
 
 1. **Python + Streamlit, no backend.** Started as a zero-build vanilla-JS
-   single-page app; the wizard state got verbose and there was no one-command
-   host. Streamlit gives a stateful multi-step UI with little UI code and a free
-   deploy. Cost: a `pip install` and Streamlit's rerun model. Rejected
-   React + FastAPI (more infra, no free one-click host).
+   single-page app; the wizard state got verbose. Streamlit handles the
+   multi-step state and reruns on its own. Cost: a `pip install` and working
+   within Streamlit's rerun model. Rejected React + FastAPI as more setup than
+   the prototype needs.
 2. **Discounts are percentages, not absolute rates.** A percentage composes with
    an evolving catalog; an absolute rate attached to an attribute set breaks the
    moment a matching SKU has a different list price. Absolute overrides are a
