@@ -48,6 +48,12 @@ flowchart LR
 | Sales | Author the agreement, send it for signature, provision billing, generate a billing preview for a customer conversation. |
 | Billing team (consumer, not a user of the UI) | Receive the billing configuration JSON produced at provisioning. |
 
+In a real deployment these steps span three teams: Sales authors the agreement,
+billing operations provisions and runs it, and the customer accounts team owns
+the account record. The prototype collapses them into one "Sales" role to keep it
+single-user. The state machine already partitions the work by transition, so
+splitting the role later is a permissions change, not a redesign.
+
 ## 4. Vocabulary
 
 | Term | Meaning |
