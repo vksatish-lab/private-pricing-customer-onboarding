@@ -51,6 +51,20 @@ Consequences:
 - A list-price change propagates to every customer automatically, because no
   customer holds a copy of the price.
 
+## The agreement PDF is generated from the config, not parsed back out of it
+
+The common pattern: Sales drafts a contract document, then billing operations
+reads it and re-enters the terms into the billing system. Two failures. Every
+drafter writes the document differently, so there is no consistent structure to
+read. And the second step is a parse — a workflow that extracts terms from a
+PDF — which is error-prone and never complete.
+
+Here the structured terms are the input. The same discount parameters that
+compile to the billing configuration also render the agreement PDF: the parties,
+the pricing-schedule table, one row per discount rule. What a reviewer signs and
+what the billing system runs come from one object. There is no extraction step,
+and the document and the configuration cannot disagree.
+
 ## Secondary idea: the workflow is a guarded state machine
 
 `apply(record, action, payload)` is the only function that changes a record. It
