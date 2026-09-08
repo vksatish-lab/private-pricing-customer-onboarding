@@ -18,6 +18,11 @@ catalog, not as a per-customer price list that has to be maintained by hand.
 
 ## 2. Overview
 
+**One structured record drives the whole onboarding.** The same discount
+parameters render the signed agreement, compile the billing configuration, and
+track workflow status — no hand-drafted contract to re-key, no PDF to parse back
+out, no chance for the document and the billing setup to disagree.
+
 A web tool for a Sales user to onboard a customer onto a private (committed-spend)
 pricing agreement and to run that agreement afterward. The user authors the deal
 terms, the tool produces a signable agreement PDF, the customer signs (mocked),
