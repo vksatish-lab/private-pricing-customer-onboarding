@@ -16,10 +16,16 @@ is the workflow-correctness reading.
 ## The problem
 
 Large customers sign committed-spend contracts: a dollar commitment per year for
-negotiated discounts. Setting one up to bill correctly is a hand-off across teams,
-done ad hoc in spreadsheets and email. Steps get skipped. Discounts get entered
-against the wrong products. The discount definition drifts from the products it
-covers. Nothing shows where a given customer is in the process.
+negotiated discounts. These customers are large, so a small number of them
+account for the majority of revenue.
+
+Setting one up to bill correctly is a hand-off across teams, done ad hoc in
+spreadsheets and email. Steps get skipped. Discounts get entered against the
+wrong products. The discount definition drifts from the products it covers.
+Nothing shows where a given customer is in the process.
+
+Onboarding these accounts accurately and on schedule is part of their product
+experience. A billing error hits a top account. A delay blocks their launch.
 
 ## The non-obvious idea: attribute-based discounting
 
