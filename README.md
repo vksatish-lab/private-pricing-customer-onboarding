@@ -11,6 +11,10 @@ the agreement PDF, compile the billing configuration, and track workflow status.
 DRAFT ──generate──▶ AGREEMENT_READY ──send──▶ PENDING_SIGNATURE ──sign──▶ SIGNED ──provision──▶ ACTIVE
 ```
 
+**Live:** https://app-pricing-customer-app.streamlit.app — sidebar → **Load
+sample onboarding** for a populated account. (Streamlit Cloud runs one shared,
+ephemeral instance; the sample button always gives you a full state.)
+
 Full spec: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md). Design rationale:
 [`docs/RATIONALE.md`](docs/RATIONALE.md).
 
