@@ -228,6 +228,13 @@ the product set does. Widening a discount to a whole unit type
 (`unit == per_mtok`) or price class (`price_source == public`) is the same one
 rule, not a longer list.
 
+**Alternative considered and rejected.** Give each customer their own SKUs at
+negotiated rates — a private price list per account. This does not scale: every
+customer multiplies the SKU set, the same product exists many times under
+different ids, and a list-price or catalog change has to be re-applied to every
+private copy. Attribute-based rules keep one shared catalog and a small rule set
+per customer instead.
+
 ### 8.2 Resolution
 
 For each SKU in the catalog:
