@@ -3,8 +3,9 @@
 ## Theme
 
 **Systems & Reliability.** The hard part of onboarding a committed-spend customer
-is not a screen — it is the correctness of a multi-step process and the shape of
-the data that feeds billing. The theme lists "a developer tool that solves a real
+is integration: the work is split across fragmented systems and teams, and the
+errors and delays live in the gaps between them. The fix is one correct process
+over one shared record. The theme lists "a developer tool that solves a real
 workflow pain point"; that is what this is. The systems content is an explicit
 state machine with a guard on every transition, a single pure mutation path, an
 append-only history, and a billing configuration that *resolves* against one
