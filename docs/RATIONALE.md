@@ -9,8 +9,6 @@ log, and a billing configuration that resolves against one shared catalog rather
 than a per-customer price list. It fits the theme's "developer tool that solves a
 real workflow pain point."
 
-It is not the failure-handling / concurrency / stress reading of the theme.
-
 ## The problem
 
 Large customers sign committed-spend contracts: a dollar commitment per year for
