@@ -55,6 +55,7 @@ flowchart LR
 | Private pricing agreement | A committed-spend contract: an annual dollar commitment plus a discount structure. |
 | Cross-service discount | A single percentage off list price that applies to every SKU. |
 | Service-specific discount (SSD) | A percentage off list price for the SKUs of one service. |
+| Attribute-based discounting | A discount rule targets SKUs by a predicate over their attributes (`service_code`, `unit`, `id`, `price_source`), not by a fixed list of SKU ids. See section 8.1. |
 | Service code | The stable machine identifier for a service (`CLAUDE_API`, `CLAUDE_CODE`, `CLAUDE_FOR_WORK`, `SERVER_TOOLS`). SSD rules match on this. |
 | Catalog | The public product catalog: SKUs with list prices. One catalog for all customers. |
 | Billing configuration | The JSON compiled at provisioning. Holds the cross-service percentage and the SSD rules. Does not hold per-SKU prices. |
@@ -172,14 +173,15 @@ Every transition appends `{ at, action, from, to }` to `history`. An
 }
 ```
 
-### 8.1 Match expressions
+### 8.1 Match expressions — attribute-based discounting
 
 A discount rule does not carry a list of SKU ids. It carries a `match`
 expression — a predicate over a SKU's attributes. To apply a rule, the resolver
 evaluates its `match` against every SKU in the catalog and keeps the SKUs for
-which it returns true. Those SKUs get the rule's `discount_pct`. A SKU added to
-the catalog later is covered by any rule whose `match` it satisfies, with no
-change to the configuration.
+which it returns true. Those SKUs get the rule's `discount_pct`. This is
+attribute-based discounting: the discount is defined by what a product *is*, not
+by an enumerated list. A SKU added to the catalog later is covered by any rule
+whose `match` it satisfies, with no change to the configuration.
 
 Grammar:
 
