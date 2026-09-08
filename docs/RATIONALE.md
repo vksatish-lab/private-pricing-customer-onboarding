@@ -114,7 +114,7 @@ dependency).
 
 ## What I would do with more time
 
-1. Deploy to Streamlit Community Cloud and do a full browser pass on the UI.
+1. A full browser pass on the UI to confirm every Streamlit interaction.
 2. Per-SKU override rules — same `match` grammar with `field: id` — for exhibit
    lines that target one SKU.
 3. An explicit priority on rules, once overlapping attribute targets are allowed.
@@ -134,5 +134,9 @@ requirements doc.
 
 ## Status
 
-Code and tests are complete and green. Not yet deployed; the hosted URL and the
-video are outstanding.
+Code and tests are green (34 `unittest` cases). The prototype runs locally;
+setup and a guided walkthrough are in the README, and a **Load sample
+onboarding** button puts a provisioned account with a billing preview one click
+away. It is not deployed to a hosted URL — the intent is that the reviewer runs
+the code in the repository, with no separately built artifact that could drift
+from it. The ~5-minute video is the remaining deliverable.

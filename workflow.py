@@ -89,6 +89,32 @@ def new_record() -> dict:
     }
 
 
+def sample_record() -> dict:
+    """A fully populated onboarding, provisioned, with one billing preview.
+
+    Backs the "Load sample onboarding" button so a reviewer reaches the end state
+    -- resolved rate table, billing config, billing preview -- in one click, and
+    can still open History to see every transition that built it.
+    """
+    from engine import sample_usage  # lazy: keeps this module import-light
+
+    rec = new_record()
+    rec["agreement"].update({
+        "customer_name": "Jane Doe",
+        "company_name": "Globex Corporation",
+        "account_number": "GLBX-004417",
+        "term_months": 24,
+        "annual_commitment_usd": 5_000_000.0,
+        "discount_model": "both",
+        "cross_service_pct": 12,
+        "per_service": [{"service": "Claude Code", "pct": 20}],
+    })
+    for action in ("generate_agreement", "send_for_signature", "mark_signed", "provision_billing"):
+        rec = apply(rec, action)
+    month = date.today().strftime("%Y-%m")
+    return apply(rec, "record_billing_preview", {"month": month, "usage": sample_usage()})
+
+
 def compute_end_date(start_iso: str, term_months: int) -> str:
     """start + term_months, minus one day. 2026-06-01 + 12mo -> 2027-05-31."""
     y, m, d = (int(x) for x in start_iso.split("-"))

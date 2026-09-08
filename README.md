@@ -37,9 +37,15 @@ Streamlit opens a browser tab at **http://localhost:8501**. Stop with `Ctrl-C`.
 State is written to `data/onboardings.json` (git-ignored). Delete that file to
 reset to an empty tracker.
 
-## First run — a two-minute path
+## First run
 
-The tracker starts empty. To walk the full workflow:
+**Fastest:** sidebar → **🧪 Load sample onboarding**. This creates a
+provisioned account (Globex Corporation, $5M/yr, cross-service 12% + Claude Code
+20%) with a billing preview already generated, so the resolved rate table, the
+billing-config JSON, and the preview PDF are one screen away. Open **History** to
+see every transition that built it.
+
+**To walk the workflow yourself:**
 
 1. Sidebar → **➕ New onboarding**. A draft opens with a random signer name.
 2. Fill **Company name**, **Account number** (e.g. `GLBX-004417`), **Annual

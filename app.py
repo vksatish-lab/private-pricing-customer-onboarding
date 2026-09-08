@@ -71,6 +71,11 @@ def render_sidebar() -> None:
         store.upsert(rec)
         st.session_state.active_id = rec["id"]
         st.rerun()
+    if st.sidebar.button("🧪  Load sample onboarding", use_container_width=True):
+        rec = wf.sample_record()
+        store.upsert(rec)
+        st.session_state.active_id = rec["id"]
+        st.rerun()
 
     records = store.list_records()
     st.sidebar.caption(f"{len(records)} in flight" if records else "Nothing in flight yet")

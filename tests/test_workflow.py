@@ -13,6 +13,7 @@ from workflow import (  # noqa: E402
     apply,
     compute_end_date,
     new_record,
+    sample_record,
     validate_agreement,
 )
 
@@ -180,6 +181,20 @@ class Transitions(unittest.TestCase):
         before = r["status"]
         apply(r, "generate_agreement")
         self.assertEqual(r["status"], before)
+
+
+class Sample(unittest.TestCase):
+    def test_sample_record_is_active_and_complete(self):
+        r = sample_record()
+        self.assertEqual(r["status"], "ACTIVE")
+        self.assertEqual(r["agreement"]["company_name"], "Globex Corporation")
+        self.assertIsNotNone(r["billing_config"])
+        self.assertEqual(len(r["billing_previews"]), 1)
+        self.assertEqual(
+            [h["action"] for h in r["history"]],
+            ["create", "generate_agreement", "send_for_signature",
+             "mark_signed", "provision_billing", "record_billing_preview"],
+        )
 
 
 if __name__ == "__main__":

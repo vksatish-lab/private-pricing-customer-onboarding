@@ -88,6 +88,7 @@ splitting the role later is a permissions change, not a redesign.
 9. Persistence to one JSON file, surviving process restart.
 10. A per-record history log of every transition.
 11. Exports: billing configuration JSON, rate table CSV, billing preview PDF, agreement PDF.
+12. A sample onboarding — provisioned, with one billing preview — loadable in one click.
 
 ### 5.2 Out of scope
 
