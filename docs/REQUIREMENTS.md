@@ -219,6 +219,15 @@ A combinator narrows or widens the filter. `{ "any": [ { "field":
 "eq", "value": "per_seat_month" } ] }` matches `CLAUDE-CODE-USAGE` and
 `CLAUDE-ENTERPRISE-SEAT`.
 
+**Why this scales.** One rule covers as many SKUs as share the attribute — every
+Claude API token line, cache line, and batch line, plus every model added later,
+from a single rule. A new SKU is discounted the moment it enters the catalog with
+a matching attribute; no per-customer edit. The billing configuration holds a
+fixed handful of rules whatever the catalog size, so it does not grow or drift as
+the product set does. Widening a discount to a whole unit type
+(`unit == per_mtok`) or price class (`price_source == public`) is the same one
+rule, not a longer list.
+
 ### 8.2 Resolution
 
 For each SKU in the catalog:
