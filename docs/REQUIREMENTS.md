@@ -53,10 +53,10 @@ trail, and no server to run.
 ### 5.1 In scope
 
 1. An onboarding tracker listing every onboarding with its status.
-2. Agreement authoring: a form with the fields in section 7.
+2. Agreement authoring: a form with the fields in section 8.
 3. Agreement generation: a one-page PDF from the form.
 4. A mock signature action that records a signer name and timestamp.
-5. Billing configuration: compile the agreement's discounts into the JSON in section 9.
+5. Billing configuration: compile the agreement's discounts into the JSON in section 10.
 6. Rate table: resolve the billing configuration against the catalog.
 7. Billing preview: one per month, from hand-entered usage, with a PDF.
 8. A state machine that governs every transition, with guards.
@@ -77,13 +77,30 @@ trail, and no server to run.
 9. Tax.
 10. Editing the catalog or price book through the UI.
 
-## 6. State machine
+## 6. Assumptions
+
+1. A metering application exists and measures each customer's usage per SKU per
+   billing period. This tool does not meter usage. The billing configuration it
+   produces (section 10) is the input a downstream billing process uses, together
+   with metered usage, to compute the customer's bill: for each SKU,
+   `charge = metered_quantity × list_price × (1 − discount_pct / 100)`, with
+   `discount_pct` resolved from the configuration.
+2. The billing preview in this tool stands in for that downstream calculation
+   using hand-entered quantities. It is an estimate, not the bill.
+3. The public catalog and its list prices are maintained elsewhere and are
+   current. This tool reads them.
+4. Agreement terms are negotiated and internally approved before a user enters
+   them here. This tool records terms; it does not run deal approval.
+5. One account number identifies one customer billing account. A configuration's
+   discounts apply to that account.
+
+## 7. State machine
 
 Statuses: `DRAFT`, `AGREEMENT_READY`, `PENDING_SIGNATURE`, `SIGNED`, `ACTIVE`.
 
 | Action | From | To | Guard |
 |---|---|---|---|
-| `generate_agreement` | `DRAFT` | `AGREEMENT_READY` | Agreement passes validation (section 8). |
+| `generate_agreement` | `DRAFT` | `AGREEMENT_READY` | Agreement passes validation (section 9). |
 | `send_for_signature` | `AGREEMENT_READY` | `PENDING_SIGNATURE` | A document was generated. |
 | `mark_signed` | `PENDING_SIGNATURE` | `SIGNED` | — |
 | `provision_billing` | `SIGNED` | `ACTIVE` | Account number is present. |
@@ -99,7 +116,7 @@ Every transition appends `{ at, action, from, to }` to `history`. An
 `update_agreement` from `AGREEMENT_READY` also appends `{ action: "revise" }`. A
 `record_billing_preview` appends `note` set to the billing month.
 
-## 7. Agreement fields
+## 8. Agreement fields
 
 The Sales user enters:
 
@@ -118,7 +135,7 @@ The Sales user enters:
 Set by the system, not shown as inputs: `currency = USD`, `billing = monthly in
 arrears`, record id, status, timestamps, history.
 
-## 8. Agreement validation
+## 9. Agreement validation
 
 `generate_agreement` fails, and lists every problem, if any of these hold:
 
@@ -134,7 +151,7 @@ arrears`, record id, status, timestamps, history.
 10. A service appears in more than one per-service row.
 11. A per-service percentage is missing or outside 0–100.
 
-## 9. Billing configuration
+## 10. Billing configuration
 
 `provision_billing` writes this JSON to `record.billing_config`:
 
@@ -165,14 +182,14 @@ arrears`, record id, status, timestamps, history.
 }
 ```
 
-### 9.1 Match expression grammar
+### 10.1 Match expression grammar
 
 - Leaf: `{ "field": F, "op": OP, "value": V }`. `F` is one of `service_code`, `id`,
   `unit`, `price_source`. `OP` is `eq` or `in`. For `in`, `V` is a list.
 - Combinator: `{ "all": [ expr, ... ] }` (AND) or `{ "any": [ expr, ... ] }` (OR).
 - An unknown field or op is an error.
 
-### 9.2 Resolution
+### 10.2 Resolution
 
 For each SKU in the catalog:
 
@@ -189,7 +206,7 @@ The rate table is `{ lines: [...], summary: { skus_total, skus_discounted,
 skus_at_list, skus_at_list_ids } }`. It is computed on request. It is not written
 to the record or the store.
 
-## 10. Billing preview
+## 11. Billing preview
 
 `record_billing_preview` takes a billing month (`YYYY-MM`) and a map of SKU id to
 quantity. It appends this JSON to `record.billing_previews`:
@@ -240,7 +257,7 @@ Rules:
 4. The preview is a cost estimate. It applies no commitment drawdown, true-up, or
    overage.
 
-## 11. Catalog
+## 12. Catalog
 
 Five SKUs, one per service area:
 
@@ -255,14 +272,14 @@ Five SKUs, one per service area:
 `price_book_date = 2026-08-01`. `CLAUDE-CODE-USAGE`, `CLAUDE-ENTERPRISE-SEAT`, and
 `TOOL-WEB-SEARCH` list prices are illustrative; the Opus prices are public.
 
-## 12. User interface
+## 13. User interface
 
 1. **Tracker** (sidebar): a "New onboarding" button and a row per onboarding
    showing company name, status, and annual commitment. Selecting a row opens it.
 2. **Progress tracker** (top of each onboarding): five steps — Draft, Agreement,
    Signature, Signed, Billing. Completed steps are filled; the current step is
    marked.
-3. **Draft screen**: the agreement form (section 7). "Save draft" persists.
+3. **Draft screen**: the agreement form (section 8). "Save draft" persists.
    "Generate agreement" runs validation and advances on success; on failure it
    lists every problem.
 4. **Agreement-ready screen**: the agreement summary, a PDF download, "Send for
@@ -282,9 +299,9 @@ Five SKUs, one per service area:
      and each generated preview with its line detail and a PDF download.
 8. **History** (expander on every screen): the transition log.
 
-## 13. Documents
+## 14. Documents
 
-### 13.1 Agreement PDF
+### 14.1 Agreement PDF
 
 One page. Sections: Parties (both names and a representative line each), Pricing
 Schedule (a two-column key/value table: account number, effective date, contract
@@ -294,7 +311,7 @@ Conditions (eight numbered boilerplate clauses), Signatures. A footer carries th
 record id, status, and generation timestamp; a `DRAFT` record is marked
 "DRAFT — NOT FOR EXECUTION".
 
-### 13.2 Billing preview PDF
+### 14.2 Billing preview PDF
 
 One page. Title "Billing Preview" with the line "Non-binding estimate from entered
 usage. Not an invoice." Metadata: reference, account, customer, billing period,
@@ -302,7 +319,7 @@ generated timestamp, currency, price book date. A line-item table: item, quantit
 list unit price, discount, net unit price, amount. Totals: "At list price",
 "Agreement saving (N%)", "At your negotiated rates".
 
-## 14. Non-functional requirements
+## 15. Non-functional requirements
 
 1. **Stack**: Python 3.11 or later, Streamlit, `fpdf2`. No other runtime
    dependency.
@@ -319,7 +336,7 @@ list unit price, discount, net unit price, amount. Totals: "At list price",
 7. **Run**: `pip install -r requirements.txt` then `streamlit run app.py`.
 8. **Deploy**: the repository runs on Streamlit Community Cloud with no change.
 
-## 15. Files
+## 16. Files
 
 ```
 app.py         Streamlit UI. Screens, tracker, tabs.
@@ -332,7 +349,7 @@ pdf.py         build_agreement_pdf, build_billing_preview_pdf.
 tests/         unittest for workflow.py and engine.py.
 ```
 
-## 16. Planned extensions
+## 17. Planned extensions
 
 1. Per-SKU override rules in the billing configuration.
 2. Volume and ramp tiers evaluated at rating time.
