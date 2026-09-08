@@ -12,8 +12,7 @@ real workflow pain point."
 ## The problem
 
 Large customers sign committed-spend contracts: a dollar commitment per year for
-negotiated discounts. A few of these customers can be a large share of revenue,
-so the setup is worth getting right.
+negotiated discounts. A few of these customers can be a large share of revenue.
 
 Today it is a hand-off across teams, done in spreadsheets and email. Terms get
 keyed in wrong. The discount stops matching the products it was meant for. There
@@ -117,7 +116,7 @@ standard library only).
 
 Approximately 6 hours of active design and build on the Python version, plus
 about 1.5 hours on the earlier JavaScript prototype that was replaced. Spread
-across several sessions with heavy iteration on the discount model and the
+across several sessions with iteration on the discount model and the
 requirements doc.
 
 ## Status

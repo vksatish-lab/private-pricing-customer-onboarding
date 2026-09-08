@@ -4,7 +4,7 @@ A Sales portal for onboarding a customer onto a **private (committed-spend) pric
 agreement**. Sales authors the deal, the tool produces a signable agreement, the
 customer signs (mocked), and the onboarding is provisioned for billing.
 
-One structured record drives the whole thing: the same discount parameters render
+One structured record drives the onboarding: the same discount parameters render
 the agreement PDF, compile the billing configuration, and track workflow status.
 
 ```
@@ -14,25 +14,34 @@ DRAFT ──generate──▶ AGREEMENT_READY ──send──▶ PENDING_SIGNAT
 Full spec: [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md). Design rationale:
 [`docs/RATIONALE.md`](docs/RATIONALE.md).
 
-## Requirements
+## Prerequisites
 
-- Python **3.11 or later**
-- Nothing else — two pip packages (`streamlit`, `fpdf2`), no database, no backend
+- **Python 3.11 or later** on your PATH (`python3 --version`). `pip` and `venv`
+  ship with it.
+- **git** — or download the repo as a ZIP from the GitHub page and unzip it.
+- Internet access for the one `pip install` step. Nothing after that; the app
+  runs fully offline.
+
+No database, no other services. Two pip packages: `streamlit`, `fpdf2`.
 
 ## Run it locally
 
 ```bash
+# get the code (or download + unzip the ZIP from GitHub, then cd into the folder)
 git clone https://github.com/vksatish-lab/private-pricing-customer-onboarding.git
 cd private-pricing-customer-onboarding
 
+# isolated environment
 python3 -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 
+# install and run
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Streamlit opens a browser tab at **http://localhost:8501**. Stop with `Ctrl-C`.
+Streamlit opens a browser tab at **http://localhost:8501** (it picks the next
+free port if 8501 is taken — check the terminal). Stop with `Ctrl-C`.
 
 State is written to `data/onboardings.json` (git-ignored). Delete that file to
 reset to an empty tracker.
@@ -70,7 +79,7 @@ The **History** expander on every screen shows the full transition log.
 python -m unittest discover -s tests
 ```
 
-33 tests, standard library only — no packages needed beyond what `streamlit run`
+34 tests, standard library only — no packages needed beyond what `streamlit run`
 already installs. They cover the state machine, the discount-match grammar, the
 rate-table precedence, and the billing-preview math.
 

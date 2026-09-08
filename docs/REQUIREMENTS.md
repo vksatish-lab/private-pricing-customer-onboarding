@@ -4,9 +4,9 @@
 
 Large customers sign committed-spend contracts: a dollar commitment per year in
 exchange for negotiated discounts. Getting one of those customers set up to bill
-correctly is a hand-off across several steps — agree terms, draft an agreement,
-get it signed, translate the negotiated discounts into per-SKU rates the billing
-system applies — and each step is done ad hoc in spreadsheets and email. Steps get
+correctly is a multi-step hand-off — agree terms, draft an agreement, get it
+signed, translate the negotiated discounts into per-SKU rates the billing system
+applies — and each step is done ad hoc in spreadsheets and email. Steps get
 skipped. Discounts get entered against the wrong products. The discount definition
 drifts from the products it covers. No single record shows where a given customer
 is in the process.
@@ -21,7 +21,7 @@ catalog, not as a per-customer price list that has to be maintained by hand.
 **One structured record drives the whole onboarding.** The same discount
 parameters render the signed agreement, compile the billing configuration, and
 track workflow status — no hand-drafted contract to re-key, no PDF to parse back
-out, no chance for the document and the billing setup to disagree.
+out, and the document and the billing setup stay in sync.
 
 A web tool for a Sales user to onboard a customer onto a private (committed-spend)
 pricing agreement and to run that agreement afterward. The user authors the deal
