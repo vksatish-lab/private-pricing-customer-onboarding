@@ -27,7 +27,29 @@ Nothing shows where a given customer is in the process.
 Onboarding these accounts accurately and on schedule is part of their product
 experience. A billing error hits a top account. A delay blocks their launch.
 
-## The non-obvious idea: attribute-based discounting
+## 1. Integrated onboarding: one record, not three systems
+
+Today the work is split across teams and tools that evolve on their own. Sales
+drafts the contract in a document editor. Billing operations reads that document
+and re-keys the terms into the billing system. The accounts team tracks status in
+a spreadsheet. Three teams, three tools, no shared object — so they drift, and
+the gaps between them are where errors and delays live.
+
+This tool makes the onboarding a **single structured record**. From that one
+record:
+
+- the agreement PDF is rendered — parties, a pricing-schedule table, one row per
+  discount rule;
+- the billing configuration is compiled — the same discount parameters, in the
+  form the billing system consumes;
+- the workflow status is tracked — draft, sent, signed, provisioned.
+
+What a reviewer signs and what the billing system runs come from the same object.
+There is no hand-drafting step that varies by author, and no PDF-extraction step
+to build and get wrong. The document and the configuration cannot disagree. Every
+team reads the same record and its history.
+
+## 2. Attribute-based discounting
 
 The obvious way to give a customer negotiated pricing is a **private price list**:
 clone the SKUs, set each one's rate. Many billing systems do exactly this, and a
@@ -51,21 +73,7 @@ Consequences:
 - A list-price change propagates to every customer automatically, because no
   customer holds a copy of the price.
 
-## The agreement PDF is generated from the config, not parsed back out of it
-
-The common pattern: Sales drafts a contract document, then billing operations
-reads it and re-enters the terms into the billing system. Two failures. Every
-drafter writes the document differently, so there is no consistent structure to
-read. And the second step is a parse — a workflow that extracts terms from a
-PDF — which is error-prone and never complete.
-
-Here the structured terms are the input. The same discount parameters that
-compile to the billing configuration also render the agreement PDF: the parties,
-the pricing-schedule table, one row per discount rule. What a reviewer signs and
-what the billing system runs come from one object. There is no extraction step,
-and the document and the configuration cannot disagree.
-
-## Secondary idea: the workflow is a guarded state machine
+## 3. The workflow is a guarded state machine
 
 `apply(record, action, payload)` is the only function that changes a record. It
 copies the record, checks the transition is legal, runs the guard, applies the
